@@ -35,7 +35,7 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen antialiased">
-  <div id="app" class="max-w-3xl mx-auto px-2.5 sm:px-6 py-2 pb-10">
+  <div id="app" class="max-w-3xl lg:max-w-6xl mx-auto px-2.5 sm:px-6 py-2 pb-10">
     <span id="syncBadge" class="sr-only">Modo local · Listo para Firebase</span>
     <!-- Cabecera compacta: título a la izquierda, desbloquear pequeñito arriba a la derecha -->
     <header class="flex items-center justify-between gap-2 mb-2">
@@ -50,6 +50,9 @@
       </button>
     </header>
 
+    <!-- Espacio de trabajo: en modo apaisado o ancho, calendario a la izquierda y edición a la derecha -->
+    <div id="workspaceGrid" class="grid grid-cols-1 gap-2">
+      <div id="leftColumn" class="min-w-0">
     <!-- Selector de mes y leyenda compacta -->
     <section class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-2 sm:p-3 mb-2">
       <div class="flex items-center justify-between gap-2 mb-1.5">
@@ -133,9 +136,11 @@
         </button>
       </div>
     </section>
+      </div>
 
+      <div id="rightColumn" class="hidden min-w-0">
     <!-- Panel de Administración -->
-    <section id="editPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-4 sm:p-5 space-y-5 mb-4">
+    <section id="editPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-3.5 sm:p-4 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
           <h3 class="text-base font-bold text-slate-900">Panel de Control · Cargar y Sincronizar</h3>
@@ -241,6 +246,8 @@
         <p id="fbStatus" class="text-xs text-slate-600"></p>
       </div>
     </section>
+      </div>
+    </div>
 
     <!-- Modal para editar un día -->
     <div id="editDayModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
@@ -589,6 +596,35 @@
       renderAll();
     }
 
+    function syncWorkspaceLayout() {
+      const grid = document.getElementById("workspaceGrid");
+      const rightCol = document.getElementById("rightColumn");
+      const editPanel = document.getElementById("editPanel");
+      const isLandscape = window.matchMedia("(orientation: landscape) and (min-width: 640px)").matches || window.innerWidth >= 1024;
+
+      if (isUnlocked) {
+        rightCol.classList.remove("hidden");
+        editPanel.classList.remove("hidden");
+        if (isLandscape) {
+          grid.className = "grid grid-cols-1 md:grid-cols-12 gap-3 items-start";
+          document.getElementById("leftColumn").className = "min-w-0 md:col-span-7";
+          rightCol.className = "min-w-0 md:col-span-5 md:sticky md:top-2";
+        } else {
+          grid.className = "grid grid-cols-1 gap-2";
+          document.getElementById("leftColumn").className = "min-w-0";
+          rightCol.className = "min-w-0";
+        }
+      } else {
+        rightCol.classList.add("hidden");
+        editPanel.classList.add("hidden");
+        grid.className = "grid grid-cols-1 gap-2";
+        document.getElementById("leftColumn").className = "min-w-0";
+      }
+    }
+
+    window.addEventListener("resize", syncWorkspaceLayout);
+    window.addEventListener("orientationchange", () => setTimeout(syncWorkspaceLayout, 80));
+
     function handleLockClick() {
       if (isUnlocked) {
         lockApp();
@@ -600,9 +636,9 @@
         isUnlocked = true;
         document.getElementById("btnLockToggle").textContent = "🔓 Bloquear";
         document.getElementById("btnLockToggle").className =
-          "px-3.5 py-2 rounded-xl text-sm font-semibold border border-purple-200 bg-purple-600 text-white hover:bg-purple-700 shadow-sm transition cursor-pointer";
-        document.getElementById("editPanel").classList.remove("hidden");
+          "shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-purple-200 bg-purple-600 text-white hover:bg-purple-700 transition cursor-pointer";
         loadSavedFirebaseInputs();
+        syncWorkspaceLayout();
         renderAll();
       } else {
         alert("PIN incorrecto.");
@@ -611,11 +647,11 @@
 
     function lockApp() {
       isUnlocked = false;
-      document.getElementById("editPanel").classList.add("hidden");
       document.getElementById("editDayModal").classList.add("hidden");
       document.getElementById("btnLockToggle").textContent = "🔒 Desbloquear";
       document.getElementById("btnLockToggle").className =
-        "px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 shadow-sm transition cursor-pointer";
+        "shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer";
+      syncWorkspaceLayout();
       renderAll();
     }
 
@@ -898,6 +934,7 @@
 
     loadSavedFirebaseInputs();
     initFirebaseFromConfig();
+    syncWorkspaceLayout();
     renderAll();
   </script>
 </body>
