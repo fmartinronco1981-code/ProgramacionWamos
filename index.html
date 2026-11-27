@@ -824,7 +824,8 @@
         headline: item.headline || "",
         notes: item.notes || "",
       };
-      document.getElementById("restoreDayBtn").classList.remove("hidden");
+      const restoreBtn = document.getElementById("restoreDayBtn");
+      if (restoreBtn) restoreBtn.classList.remove("hidden");
       document.getElementById("modalDayTitle").textContent = `Editar ${selectedDateKey}`;
       document.getElementById("editStatusSelect").value = item.status;
       renderQuickPresets(item.status);
