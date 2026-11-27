@@ -969,13 +969,16 @@
         const dtMatches = [...r.matchAll(/(\d{2})\/(\d{2})\/(\d{2})(?:\s+(\d{2}:\d{2}))?/g)];
         if (dtMatches.length === 0) continue;
 
-        const firstDt = dtMatches[0];
+        // En JetSched, dtMatches[0] suele ser Check-in (ej. 22:25) y dtMatches[1] el Start/salida real (ej. 23:55)
+        const startDt = dtMatches.length >= 3 ? dtMatches[1] : dtMatches[0];
+        const checkinDt = dtMatches.length >= 3 ? dtMatches[0] : null;
         const lastDt = dtMatches[dtMatches.length - 1];
 
-        const startDay = Number(firstDt[1]);
-        const startMon = Number(firstDt[2]);
-        const startYr = firstDt[3];
-        const startTime = firstDt[4] || "00:00";
+        const startDay = Number(startDt[1]);
+        const startMon = Number(startDt[2]);
+        const startYr = startDt[3];
+        const startTime = startDt[4] || "00:00";
+        const checkinTime = checkinDt && checkinDt[4] ? checkinDt[4] : "";
 
         const endDay = Number(lastDt[1]);
         const endMon = Number(lastDt[2]);
@@ -992,6 +995,7 @@
           startMon,
           startYr,
           startTime,
+          checkinTime,
           endDay,
           endMon,
           endYr,
@@ -1204,14 +1208,14 @@
                 status: "transit",
                 tag: `Sale ${e.startTime}`,
                 headline: `Sales de Madrid a las ${e.startTime} hacia ${destCity}`,
-                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Salida ${e.startTime} (${origCity}) → llegada ${e.endTime} (${destCity}).`,
+                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Salida ${e.startTime} (${origCity}) → llegada ${e.endTime} (${destCity})${e.checkinTime ? ` · Firma ${e.checkinTime}` : ""}.`,
               });
             } else {
               setDayIfHigherPriority(e.startDay, 40, {
                 status: "away",
                 tag: origCity,
                 headline: `Fuera · ${origCity}${destCity && destCity !== origCity ? ` → ${destCity}` : ""}`,
-                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Salida ${e.startTime} (${origCity}) → llegada ${e.endTime} (${destCity}).`,
+                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Salida ${e.startTime} (${origCity}) → llegada ${e.endTime} (${destCity})${e.checkinTime ? ` · Firma ${e.checkinTime}` : ""}.`,
               });
             }
           }
