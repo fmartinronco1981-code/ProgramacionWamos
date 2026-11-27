@@ -706,7 +706,7 @@
         headline: item.headline || "",
         notes: item.notes || "",
       };
-      document.getElementById("restoreDayBtn").classList.remove("hidden");
+      document.getElementById("restoreDayBtn")?.classList.remove("hidden");
       document.getElementById("modalDayTitle").textContent = `Editar ${selectedDateKey}`;
       document.getElementById("editStatusSelect").value = item.status;
       renderQuickPresets(item.status);
@@ -751,7 +751,7 @@
       selectedDateKey = "2026-12-03";
       persistLocalRoster();
       renderAll();
-      document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026 con destinos y colores.";
+      const _ps = document.getElementById("parseStatus"); if (_ps) _ps.textContent = "Restaurado diciembre 2026 con destinos y colores.";
     }
 
     // PARCHE 2: Parser PDF con detección visual de destino (Chile, Bogotá, Roma, Abu Dabi, etc.) y 4 estados
@@ -895,8 +895,10 @@
       try {
         saved = JSON.parse(localStorage.getItem(FB_CFG_KEY) || "{}");
       } catch (_) {}
-      document.getElementById("fbUrlInput").value = saved.databaseURL || DEFAULT_FIREBASE_URL;
-      document.getElementById("fbPathInput").value = saved.path || DEFAULT_FIREBASE_PATH;
+      const urlEl = document.getElementById("fbUrlInput");
+      const pathEl = document.getElementById("fbPathInput");
+      if (urlEl) urlEl.value = saved.databaseURL || DEFAULT_FIREBASE_URL;
+      if (pathEl) pathEl.value = saved.path || DEFAULT_FIREBASE_PATH;
     }
 
     function initFirebaseFromConfig() {
@@ -929,7 +931,7 @@
     }
 
     async function pullFromFirebaseNow() {
-      const fbStatus = document.getElementById("fbStatus");
+      const fbStatus = document.getElementById("fbStatus") || { textContent: "" };
       if (!dbRef) initFirebaseFromConfig();
       if (!dbRef) {
         fbStatus.textContent = "Primero pon y guarda tu Database URL.";
@@ -965,7 +967,7 @@
     }
 
     async function syncCurrentMonthToFirebase() {
-      const fbStatus = document.getElementById("fbStatus");
+      const fbStatus = document.getElementById("fbStatus") || { textContent: "" };
       if (!dbRef) initFirebaseFromConfig();
       if (!dbRef) {
         fbStatus.textContent = "Primero guarda una Database URL válida.";
