@@ -943,18 +943,18 @@
     }
 
     function parseJetSchedulerRows(plainText, targetMonth, targetTwoDigitYear, daysInMonth) {
-      // Unir líneas que pertenecen a la misma fila de actividad (las que no empiezan por día de semana ni por |||DD/MM/YY)
+      // Unir líneas continuadas que no contienen fecha DD/MM/YY al inicio
       const rawLines = String(plainText || "")
         .split(/\n+/)
-        .map((l) => l.trim())
+        .map((l) => l.replace(/^\s*\|+/, (m) => m.trim()).trim())
         .filter((l) => l.length > 0 && !/^\d+\/\d+$/.test(l) && !/^\*\s*Timings in LT/i.test(l) && !/^Monthly total/i.test(l));
 
       const rows = [];
       let currentRow = "";
-      const rowStartRegex = /^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*\|+|\|\|\|?)\s*\d{2}\/\d{2}\/\d{2}/i;
+      const hasDateRegex = /\b\d{2}\/\d{2}\/\d{2}\b/;
 
       for (const line of rawLines) {
-        if (rowStartRegex.test(line)) {
+        if (hasDateRegex.test(line)) {
           if (currentRow) rows.push(currentRow);
           currentRow = line;
         } else if (currentRow) {
@@ -965,8 +965,7 @@
 
       const parsedEntries = [];
       for (const r of rows) {
-        // Extraer fechas DD/MM/YY HH:MM presentes en la fila
-        const dtMatches = [...r.matchAll(/(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}:\d{2})/g)];
+        const dtMatches = [...r.matchAll(/(\d{2})\/(\d{2})\/(\d{2})(?:\s+(\d{2}:\d{2}))?/g)];
         if (dtMatches.length === 0) continue;
 
         const firstDt = dtMatches[0];
@@ -975,12 +974,12 @@
         const startDay = Number(firstDt[1]);
         const startMon = Number(firstDt[2]);
         const startYr = firstDt[3];
-        const startTime = firstDt[4];
+        const startTime = firstDt[4] || "00:00";
 
         const endDay = Number(lastDt[1]);
         const endMon = Number(lastDt[2]);
         const endYr = lastDt[3];
-        const endTime = lastDt[4];
+        const endTime = lastDt[4] || "23:59";
 
         const cityMatches = [...r.matchAll(/\b(SKBO|SBGR|LEMD|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/g)].map((m) => m[1]);
         const origCode = cityMatches[0] || "";
@@ -1215,7 +1214,7 @@
 
         if (statusEl) {
           statusEl.textContent =
-            `Importado ${mKey} (${formatLabel}, ${entries.length} filas de actividad): ` +
+            `${entries.length > 0 ? "Importado" : "Aviso: 0 filas detectadas en"} ${mKey} (${formatLabel}, ${entries.length} filas): ` +
             `${counts.home} libre · ${counts.transit} sal/lleg · ${counts.reserve} res · ${counts.imaginaria} imag · ${counts.away} fuera.`;
         }
       } catch (err) {
