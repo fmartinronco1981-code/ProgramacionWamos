@@ -66,7 +66,7 @@
       <h1 class="text-base sm:text-xl font-bold text-slate-900 leading-tight truncate">¿Cuándo está en casa?</h1>
 
       <div class="flex items-center gap-1.5 shrink-0">
-        <span id="headerMadridClock" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold border border-slate-200 bg-slate-100 text-slate-800 tabular-nums">🕐 MAD --:--</span>
+        <span id="headerLocalClock" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold border border-slate-200 bg-slate-100 text-slate-800 tabular-nums">🕐 --:--</span>
         <span id="offlineStatusBadge" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-800">📶 Guardado en movil</span>
         <button
           id="btnLockToggle"
@@ -630,8 +630,8 @@
         const cellIcao = resolveIcaoFromItem(item);
         const cellTz = AIRPORT_TZ[cellIcao] || "Europe/Madrid";
         const refDate = getReferenceDateForDay(dk);
-        const diffShort = cellTz === "Europe/Madrid" ? "MAD" : formatDiffFromMadrid(cellTz, refDate).replace(" vs MAD", "");
-        const madCellHint = item.madTimeHint ? `MAD ${item.madTimeHint}` : diffShort;
+        const rawDiff = cellTz === "Europe/Madrid" ? "MAD" : formatDiffFromMadrid(cellTz, refDate).replace(" vs MAD", "").replace(/h$/i, "");
+        const madCellHint = rawDiff;
 
         btn.innerHTML = `
           <div class="flex items-center justify-between leading-none">
@@ -1646,9 +1646,14 @@
     function updateMadridClocks() {
       const now = new Date();
       const madNow = formatTimeInZone("Europe/Madrid", now);
-      const headerClock = document.getElementById("headerMadridClock");
+      const localNow = new Intl.DateTimeFormat("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(now);
+      const headerClock = document.getElementById("headerLocalClock");
       if (headerClock) {
-        headerClock.textContent = `🕐 MAD ${madNow}`;
+        headerClock.textContent = `🕐 ${localNow}`;
       }
 
       const monthKey = getMonthKey(currentYear, currentMonthIndex);
