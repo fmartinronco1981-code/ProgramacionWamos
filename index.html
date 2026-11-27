@@ -331,6 +331,28 @@
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
     }
 
+    const AIRPORT_ICAO = {
+      LEMD: "LEMD",
+      SKBO: "SKBO",
+      SBGR: "SBGR",
+      OMAA: "OMAA",
+      LIRF: "LIRF",
+      MMMX: "MMMX",
+      SCEL: "SCEL",
+      FMEE: "FMEE",
+      KJFK: "KJFK",
+      KMIA: "KMIA",
+      MPTO: "MPTO",
+      SEQM: "SEQM",
+      SPJC: "SPJC",
+      MDSD: "MDSD",
+      MMUN: "MMUN",
+    };
+
+    function formatFlightDisplayName(code) {
+      return String(code || "").trim().toUpperCase();
+    }
+
     // PARCHE 2: Diccionario de destinos legibles para que se vean directo en el calendario
     const AIRPORT_NAMES = {
       LEMD: "Madrid",
@@ -1014,6 +1036,17 @@
 
     function formatExcelCellDate(val) {
       if (val == null || val === "") return "";
+      if (typeof val === "number" && isFinite(val) && val > 20000 && val < 90000 && window.XLSX && XLSX.SSF) {
+        const dt = XLSX.SSF.parse_date_code(val);
+        if (dt && dt.y && dt.m && dt.d) {
+          const dd = String(dt.d).padStart(2, "0");
+          const mm = String(dt.m).padStart(2, "0");
+          const yy = String(dt.y).slice(-2);
+          const hh = String(dt.H || 0).padStart(2, "0");
+          const mi = String(dt.M || 0).padStart(2, "0");
+          return `${dd}/${mm}/${yy} ${hh}:${mi}`;
+        }
+      }
       if (val instanceof Date && !isNaN(val.getTime())) {
         const dd = String(val.getDate()).padStart(2, "0");
         const mm = String(val.getMonth() + 1).padStart(2, "0");
@@ -1027,7 +1060,7 @@
 
     function extractSpreadsheetText(arrayBuffer) {
       if (!window.XLSX) throw new Error("Librería de hojas de cálculo (XLSX) no cargada.");
-      const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+      const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: false });
       const lines = [];
       for (const sheetName of wb.SheetNames) {
         const ws = wb.Sheets[sheetName];
@@ -1199,23 +1232,28 @@
           // Actividad de vuelo / servicio entre origen y destino
           const origCity = AIRPORT_NAMES[e.origCode] || detectCityFromText(e.origCode) || e.origCode;
           const destCity = AIRPORT_NAMES[e.destCode] || detectCityFromText(e.destCode) || e.destCode;
+          const origIcao = AIRPORT_ICAO[e.origCode] || e.origCode || "---";
+          const destIcao = AIRPORT_ICAO[e.destCode] || e.destCode || "---";
           const flightMatch = r.match(/\b([A-Z]{2,3}\d{2,4})\b/);
           const flightCode = flightMatch ? flightMatch[1] : "";
+          const flightLabel = formatFlightDisplayName(flightCode);
+          const routeIcao = `${origIcao} → ${destIcao}`;
 
           if (startInMonth) {
             if (e.origCode === "LEMD") {
               setDayIfHigherPriority(e.startDay, 60, {
                 status: "transit",
                 tag: `Sale ${e.startTime}`,
-                headline: `Sales de Madrid a las ${e.startTime} hacia ${destCity}`,
-                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Salida ${e.startTime} (${origCity}) → llegada ${e.endTime} (${destCity})${e.checkinTime ? ` · Firma ${e.checkinTime}` : ""}.`,
+                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${e.endTime} LT`,
+                notes: `${origCity} (${origIcao}) a ${destCity} (${destIcao}) · Sale ${e.startTime} LT · Llega ${e.endTime} LT${e.checkinTime ? ` · Firma ${e.checkinTime} LT` : ""}.`,
               });
             } else {
+              const cellTag = destCity && destCity !== origCity ? `${origCity} → ${destCity}` : origCity;
               setDayIfHigherPriority(e.startDay, 40, {
                 status: "away",
-                tag: origCity,
-                headline: `Fuera · ${origCity}${destCity && destCity !== origCity ? ` → ${destCity}` : ""}`,
-                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Salida ${e.startTime} (${origCity}) → llegada ${e.endTime} (${destCity})${e.checkinTime ? ` · Firma ${e.checkinTime}` : ""}.`,
+                tag: cellTag,
+                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${e.endTime} LT`,
+                notes: `${origCity} (${origIcao}) a ${destCity} (${destIcao}) · Sale ${e.startTime} LT · Llega ${e.endTime} LT${e.checkinTime ? ` · Firma ${e.checkinTime} LT` : ""}.`,
               });
             }
           }
@@ -1225,15 +1263,15 @@
               setDayIfHigherPriority(e.endDay, 65, {
                 status: "transit",
                 tag: `Llega ${e.endTime}`,
-                headline: `Llegas a Madrid a las ${e.endTime} desde ${origCity}`,
-                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Llegada a Madrid a las ${e.endTime} (desde ${origCity}).`,
+                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${e.endTime} LT`,
+                notes: `Llegada a ${destCity} (${destIcao}) a las ${e.endTime} LT desde ${origCity} (${origIcao}) · Sale ${e.startTime} LT.`,
               });
             } else if (e.endDay !== e.startDay || !startInMonth) {
               setDayIfHigherPriority(e.endDay, 35, {
                 status: "away",
                 tag: destCity,
-                headline: `Fuera · ${destCity}`,
-                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Llegada a ${destCity} a las ${e.endTime}.`,
+                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${e.endTime} LT`,
+                notes: `Llegada a ${destCity} (${destIcao}) a las ${e.endTime} LT desde ${origCity} (${origIcao}) · Sale ${e.startTime} LT.`,
               });
             }
           }
