@@ -168,7 +168,7 @@
 
       <!-- Subir PDF JetSched -->
       <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
-        <label class="block text-sm font-semibold text-slate-800 mb-1">1. Importar PDF de programación (JetSched)</label>
+        <label class="block text-sm font-semibold text-slate-800 mb-1">1. Importar programación (PDF o RTF de JetSched)</label>
         <p class="text-xs text-slate-500 mb-3">
           Detecta libres/vacaciones (verde), salidas/llegadas MAD (naranja), reservas (morado) y estancias fuera con su ciudad (rojo).
         </p>
@@ -176,7 +176,7 @@
           <input
             id="pdfFileInput"
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,.rtf,text/rtf,text/plain,.txt"
             onchange="handlePdfUpload(event)"
             class="block text-xs text-slate-600 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
           />
@@ -873,10 +873,10 @@
       document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026 con destinos y colores.";
     }
 
-    // Parser PDF adaptado al formato real de JetSched (6BwAAGETvCYGAA.pdf y similares)
+    // Parser dedicado a exportaciones de Jet Scheduler (formato con barras "|" y fechas DD/MM/YY HH:MM)
     function detectCityFromText(text) {
-      const normalized = text.replace(/\s+/g, " ");
-      const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/);
+      const normalized = String(text || "").replace(/\s+/g, " ");
+      const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN|LEMD)\b/);
       if (iataMatch && AIRPORT_NAMES[iataMatch[1]]) {
         return AIRPORT_NAMES[iataMatch[1]];
       }
@@ -891,46 +891,171 @@
       return null;
     }
 
-    async function handlePdfUpload(event) {
-      const file = event.target.files?.[0];
-      if (!file || !window.pdfjsLib) return;
-      const statusEl = document.getElementById("parseStatus");
-      if (statusEl) statusEl.textContent = "Leyendo PDF...";
+    function decodeRtfToPlainText(rtfRaw) {
+      let s = String(rtfRaw || "");
+      if (!/\{\\rtf/i.test(s)) {
+        return s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      }
+      s = s.replace(/\\par\b/gi, "\n").replace(/\\line\b/gi, "\n");
+      s = s.replace(/\\'([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+      s = s.replace(/\{\\(fonttbl|colortbl|stylesheet|info|pict|object)[\s\S]*?\}/gi, " ");
+      s = s.replace(/\\[a-zA-Z]+-?\d* ?/g, " ");
+      s = s.replace(/[{}]/g, " ");
+      return s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    }
 
-      try {
-        const buf = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-        let fullText = "";
+    function extractStructuredPdfText(pdf) {
+      return (async () => {
+        const pagesText = [];
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
           const content = await page.getTextContent();
-          fullText += "\n" + content.items.map((it) => it.str).join(" ");
+          const items = (content.items || [])
+            .filter((it) => it && typeof it.str === "string" && it.str.trim() !== "")
+            .map((it) => {
+              const tr = it.transform || [1, 0, 0, 1, 0, 0];
+              return {
+                str: it.str.trim(),
+                x: Number(tr[4] || 0),
+                y: Number(tr[5] || 0),
+              };
+            });
+
+          items.sort((a, b) => {
+            const dy = b.y - a.y;
+            if (Math.abs(dy) > 4) return dy;
+            return a.x - b.x;
+          });
+
+          const lines = [];
+          for (const it of items) {
+            const last = lines[lines.length - 1];
+            if (!last || Math.abs(last.y - it.y) > 4) {
+              lines.push({ y: it.y, parts: [it.str] });
+            } else {
+              last.parts.push(it.str);
+            }
+          }
+          pagesText.push(lines.map((l) => l.parts.join(" ")).join(" \n "));
+        }
+        return pagesText.join(" \n ");
+      })();
+    }
+
+    function parseJetSchedulerRows(plainText, targetMonth, targetTwoDigitYear, daysInMonth) {
+      // Unir líneas que pertenecen a la misma fila de actividad (las que no empiezan por día de semana ni por |||DD/MM/YY)
+      const rawLines = String(plainText || "")
+        .split(/\n+/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0 && !/^\d+\/\d+$/.test(l) && !/^\*\s*Timings in LT/i.test(l) && !/^Monthly total/i.test(l));
+
+      const rows = [];
+      let currentRow = "";
+      const rowStartRegex = /^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*\|+|\|\|\|?)\s*\d{2}\/\d{2}\/\d{2}/i;
+
+      for (const line of rawLines) {
+        if (rowStartRegex.test(line)) {
+          if (currentRow) rows.push(currentRow);
+          currentRow = line;
+        } else if (currentRow) {
+          currentRow += " " + line;
+        }
+      }
+      if (currentRow) rows.push(currentRow);
+
+      const parsedEntries = [];
+      for (const r of rows) {
+        // Extraer fechas DD/MM/YY HH:MM presentes en la fila
+        const dtMatches = [...r.matchAll(/(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2}:\d{2})/g)];
+        if (dtMatches.length === 0) continue;
+
+        const firstDt = dtMatches[0];
+        const lastDt = dtMatches[dtMatches.length - 1];
+
+        const startDay = Number(firstDt[1]);
+        const startMon = Number(firstDt[2]);
+        const startYr = firstDt[3];
+        const startTime = firstDt[4];
+
+        const endDay = Number(lastDt[1]);
+        const endMon = Number(lastDt[2]);
+        const endYr = lastDt[3];
+        const endTime = lastDt[4];
+
+        const cityMatches = [...r.matchAll(/\b(SKBO|SBGR|LEMD|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/g)].map((m) => m[1]);
+        const origCode = cityMatches[0] || "";
+        const destCode = cityMatches[cityMatches.length - 1] || origCode;
+
+        parsedEntries.push({
+          raw: r,
+          startDay,
+          startMon,
+          startYr,
+          startTime,
+          endDay,
+          endMon,
+          endYr,
+          endTime,
+          origCode,
+          destCode,
+        });
+      }
+
+      return parsedEntries.filter(
+        (e) =>
+          (e.startMon === targetMonth && e.startYr === targetTwoDigitYear) ||
+          (e.endMon === targetMonth && e.endYr === targetTwoDigitYear)
+      );
+    }
+
+    async function handlePdfUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const statusEl = document.getElementById("parseStatus");
+      if (statusEl) statusEl.textContent = "Leyendo archivo de programación...";
+
+      try {
+        const isRtfOrTxt = /\.(rtf|txt)$/i.test(file.name) || /rtf|text\/plain/i.test(file.type || "");
+        let fullText = "";
+        let formatLabel = "";
+
+        if (isRtfOrTxt) {
+          const rawText = await file.text();
+          fullText = decodeRtfToPlainText(rawText);
+          formatLabel = "Jet Scheduler RTF/TXT";
+        } else {
+          if (!window.pdfjsLib) throw new Error("pdf.js no cargado");
+          const buf = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+          fullText = await extractStructuredPdfText(pdf);
+          formatLabel = `PDF (${pdf.numPages} págs.)`;
         }
 
-        const cleanText = fullText.replace(/\s+/g, " ");
-        const dateMatches = [...cleanText.matchAll(/(\d{2})\/(\d{2})\/(\d{2})/g)];
+        const cleanText = fullText.replace(/\s+/g, " ").trim();
+        const planMatch = cleanText.match(/Planning from\s+(\d{2})\/(\d{2})\/(\d{4})/);
+        const anyDateMatch = cleanText.match(/(\d{2})\/(\d{2})\/(\d{2})/);
 
-        if (dateMatches.length === 0) {
+        if (!planMatch && !anyDateMatch) {
           if (statusEl) {
-            statusEl.textContent = `PDF leído (${pdf.numPages} págs.), pero no se encontraron fechas DD/MM/AA en el texto extraído.`;
+            statusEl.textContent = `Archivo leído (${formatLabel}), pero no se han encontrado fechas en la programación.`;
           }
           return;
         }
 
-        const planMatch = cleanText.match(/Planning from\s+(\d{2})\/(\d{2})\/(\d{4})/);
         let y = planMatch ? Number(planMatch[3]) : currentYear;
         let mIdx = planMatch ? Number(planMatch[2]) - 1 : currentMonthIndex;
-
-        if (!planMatch) {
-          const twoDigitYear = Number(dateMatches[0][3]);
+        if (!planMatch && anyDateMatch) {
+          const twoDigitYear = Number(anyDateMatch[3]);
           y = twoDigitYear >= 70 ? 1900 + twoDigitYear : 2000 + twoDigitYear;
-          mIdx = Math.max(0, Math.min(11, Number(dateMatches[0][2]) - 1));
+          mIdx = Math.max(0, Math.min(11, Number(anyDateMatch[2]) - 1));
         }
 
         const mKey = getMonthKey(y, mIdx);
+        const targetMonth = mIdx + 1;
+        const targetTwoDigitYear = String(y).slice(-2);
         const daysInMonth = new Date(y, mIdx + 1, 0).getDate();
-        const twoDigitTargetYear = String(y).slice(-2);
 
+        // Inicializar todos los días del mes
         const newMonth = {};
         for (let d = 1; d <= daysInMonth; d++) {
           const dk = `${mKey}-${String(d).padStart(2, "0")}`;
@@ -942,107 +1067,143 @@
           };
         }
 
-        const daySnippets = {};
-        for (const dm of dateMatches) {
-          const dayNum = Number(dm[1]);
-          const monNum = Number(dm[2]);
-          const yrStr = dm[3];
-          if (monNum !== mIdx + 1 || yrStr !== twoDigitTargetYear || dayNum < 1 || dayNum > daysInMonth) {
-            continue;
+        // Prioridad por día para evitar que un tramo posterior pise un día libre o vacaciones
+        const dayPriority = {};
+        function setDayIfHigherPriority(dayNum, prio, entryObj) {
+          if (dayNum < 1 || dayNum > daysInMonth) return;
+          const prevPrio = dayPriority[dayNum] || 0;
+          if (prio >= prevPrio) {
+            dayPriority[dayNum] = prio;
+            const dk = `${mKey}-${String(dayNum).padStart(2, "0")}`;
+            newMonth[dk] = entryObj;
           }
-          const slice = cleanText.slice(Math.max(0, dm.index - 20), Math.min(cleanText.length, dm.index + 240));
-          if (!daySnippets[dayNum]) daySnippets[dayNum] = [];
-          daySnippets[dayNum].push(slice);
         }
 
-        let matchedDatesCount = Object.keys(daySnippets).length;
-        let detectedNonFreeCount = 0;
+        const entries = parseJetSchedulerRows(fullText, targetMonth, targetTwoDigitYear, daysInMonth);
 
-        for (let d = 1; d <= daysInMonth; d++) {
-          const snippets = daySnippets[d];
-          if (!snippets || snippets.length === 0) continue;
-          const combined = snippets.join(" | ");
-          const dk = `${mKey}-${String(d).padStart(2, "0")}`;
+        for (const e of entries) {
+          const r = e.raw;
+          const isVacation = /VACACIONES/i.test(r);
+          const isDayOff = /DAY\s*OFF/i.test(r);
+          const isHotel = /\bHOTEL\b/i.test(r);
+          const isImaginaria = /\bIMAGINARIA\b/i.test(r);
+          const isReserve = /\b(RESERVA|SBY|STANDBY)\b/i.test(r);
 
-          if (/VACACIONES/i.test(combined)) {
-            newMonth[dk] = {
-              status: "home",
-              tag: "Vacaciones",
-              headline: "En casa · Vacaciones",
-              notes: "Periodo de vacaciones en Madrid.",
-            };
-          } else if (/DAY\s*OFF/i.test(combined)) {
-            newMonth[dk] = {
-              status: "home",
-              tag: "Libre",
-              headline: "En casa libre",
-              notes: "Día libre en Madrid.",
-            };
-          } else if (/\bIMAGINARIA\b/i.test(combined)) {
-            newMonth[dk] = {
-              status: "imaginaria",
-              tag: "Imaginaria",
-              headline: "Imaginaria",
-              notes: "Día de imaginaria asignado.",
-            };
-            detectedNonFreeCount++;
-          } else if (/\b(RESERVA|SBY|STANDBY)\b/i.test(combined)) {
-            newMonth[dk] = {
-              status: "reserve",
-              tag: "Reservas",
-              headline: "Reservas",
-              notes: "Día de reserva asignado.",
-            };
-            detectedNonFreeCount++;
-          } else if (/\bHOTEL\b/i.test(combined)) {
-            const city = detectCityFromText(combined) || "Fuera";
-            newMonth[dk] = {
-              status: "away",
-              tag: city,
-              headline: `Fuera de Madrid · ${city}`,
-              notes: `Estancia en hotel (${city}).`,
-            };
-            detectedNonFreeCount++;
-          } else if (/\bLEMD\b/i.test(combined)) {
-            const timeMatches = [...combined.matchAll(/\b(\d{2}:\d{2})\b/g)].map((x) => x[1]);
-            const city = detectCityFromText(combined);
-            const hasArrivalAtLemd = /\b\d{2}:\d{2}\b\s+LEMD/.test(combined);
-            const firstTime = timeMatches[0] || "";
-            if (hasArrivalAtLemd && firstTime) {
-              newMonth[dk] = {
-                status: "transit",
-                tag: `Llega ${firstTime}`,
-                headline: `Llega/movimiento LEMD (${firstTime})${city ? ` · ${city}` : ""}`,
-                notes: "Movimiento asociado a Madrid (LEMD).",
-              };
-            } else if (firstTime) {
-              newMonth[dk] = {
-                status: "transit",
-                tag: `Sale ${firstTime}`,
-                headline: `Sale/movimiento LEMD (${firstTime})${city ? ` · ${city}` : ""}`,
-                notes: "Movimiento asociado a Madrid (LEMD).",
-              };
-            } else {
-              newMonth[dk] = {
-                status: "transit",
-                tag: "Salida/Llegada",
-                headline: `Movimiento LEMD${city ? ` · ${city}` : ""}`,
-                notes: "Revisa la hora exacta en el detalle del vuelo.",
-              };
+          const startInMonth = e.startMon === targetMonth && e.startYr === targetTwoDigitYear;
+          const endInMonth = e.endMon === targetMonth && e.endYr === targetTwoDigitYear;
+          const sDay = startInMonth ? e.startDay : 1;
+          const eDay = endInMonth ? e.endDay : daysInMonth;
+
+          if (isVacation) {
+            for (let d = sDay; d <= eDay; d++) {
+              setDayIfHigherPriority(d, 10, {
+                status: "home",
+                tag: "Vacaciones",
+                headline: "En casa · Vacaciones",
+                notes: "Periodo de vacaciones en Madrid.",
+              });
             }
-            detectedNonFreeCount++;
-          } else {
-            const city = detectCityFromText(combined);
-            if (city) {
-              newMonth[dk] = {
+            continue;
+          }
+
+          if (isDayOff) {
+            for (let d = sDay; d <= eDay; d++) {
+              setDayIfHigherPriority(d, 10, {
+                status: "home",
+                tag: "Libre",
+                headline: "En casa libre",
+                notes: "Día libre en Madrid.",
+              });
+            }
+            continue;
+          }
+
+          if (isImaginaria) {
+            for (let d = sDay; d <= eDay; d++) {
+              setDayIfHigherPriority(d, 20, {
+                status: "imaginaria",
+                tag: "Imaginaria",
+                headline: "Imaginaria",
+                notes: "Día de imaginaria asignado.",
+              });
+            }
+            continue;
+          }
+
+          if (isReserve) {
+            for (let d = sDay; d <= eDay; d++) {
+              setDayIfHigherPriority(d, 20, {
+                status: "reserve",
+                tag: "Reservas",
+                headline: "Reservas",
+                notes: "Día de reserva asignado.",
+              });
+            }
+            continue;
+          }
+
+          if (isHotel) {
+            const hotelCity = AIRPORT_NAMES[e.origCode] || detectCityFromText(r) || "Fuera";
+            const hotelNameMatch = r.match(/NAME:\s*([^\n|]+)/i);
+            const hotelLabel = hotelNameMatch ? hotelNameMatch[1].trim() : `Hotel en ${hotelCity}`;
+            for (let d = sDay; d <= eDay; d++) {
+              setDayIfHigherPriority(d, 30, {
                 status: "away",
-                tag: city,
-                headline: `Fuera de Madrid · ${city}`,
-                notes: `Actividad o vuelo con destino/escala en ${city}.`,
-              };
-              detectedNonFreeCount++;
+                tag: hotelCity,
+                headline: `Fuera en ${hotelCity} · Hotel`,
+                notes: `${hotelLabel} (${e.startTime}–${e.endTime}).`,
+              });
+            }
+            continue;
+          }
+
+          // Actividad de vuelo / servicio entre origen y destino
+          const origCity = AIRPORT_NAMES[e.origCode] || detectCityFromText(e.origCode) || e.origCode;
+          const destCity = AIRPORT_NAMES[e.destCode] || detectCityFromText(e.destCode) || e.destCode;
+          const flightMatch = r.match(/\b([A-Z]{2,3}\d{2,4})\b/);
+          const flightCode = flightMatch ? flightMatch[1] : "";
+
+          if (startInMonth) {
+            if (e.origCode === "LEMD") {
+              setDayIfHigherPriority(e.startDay, 45, {
+                status: "transit",
+                tag: `Sale ${e.startTime}`,
+                headline: `Sales de Madrid a las ${e.startTime} hacia ${destCity}`,
+                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Salida ${e.startTime} (${origCity}) → llegada ${e.endTime} (${destCity}).`,
+              });
+            } else {
+              setDayIfHigherPriority(e.startDay, 40, {
+                status: "away",
+                tag: origCity,
+                headline: `Fuera · ${origCity}${destCity && destCity !== origCity ? ` → ${destCity}` : ""}`,
+                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Salida ${e.startTime} (${origCity}) → llegada ${e.endTime} (${destCity}).`,
+              });
             }
           }
+
+          if (endInMonth) {
+            if (e.destCode === "LEMD") {
+              setDayIfHigherPriority(e.endDay, 50, {
+                status: "transit",
+                tag: `Llega ${e.endTime}`,
+                headline: `Llegas a Madrid a las ${e.endTime} desde ${origCity}`,
+                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Llegada a Madrid a las ${e.endTime} (desde ${origCity}).`,
+              });
+            } else if (e.endDay !== e.startDay || !startInMonth) {
+              setDayIfHigherPriority(e.endDay, 35, {
+                status: "away",
+                tag: destCity,
+                headline: `Fuera · ${destCity}`,
+                notes: `${flightCode ? `Vuelo ${flightCode} · ` : ""}Llegada a ${destCity} a las ${e.endTime}.`,
+              });
+            }
+          }
+        }
+
+        const counts = { home: 0, transit: 0, reserve: 0, imaginaria: 0, away: 0 };
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dk = `${mKey}-${String(d).padStart(2, "0")}`;
+          counts[newMonth[dk].status] = (counts[newMonth[dk].status] || 0) + 1;
         }
 
         rosterData[mKey] = newMonth;
@@ -1053,10 +1214,12 @@
         renderAll();
 
         if (statusEl) {
-          statusEl.textContent = `Importado ${mKey} (${pdf.numPages} págs., ${matchedDatesCount} días con fecha leídos, ${detectedNonFreeCount} días de vuelo/hotel/turno detectados).`;
+          statusEl.textContent =
+            `Importado ${mKey} (${formatLabel}, ${entries.length} filas de actividad): ` +
+            `${counts.home} libre · ${counts.transit} sal/lleg · ${counts.reserve} res · ${counts.imaginaria} imag · ${counts.away} fuera.`;
         }
       } catch (err) {
-        if (statusEl) statusEl.textContent = "Error leyendo el PDF: " + err.message;
+        if (statusEl) statusEl.textContent = "Error leyendo el archivo: " + err.message;
       }
     }
 
