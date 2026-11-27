@@ -8,6 +8,29 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <!-- Modal PIN para desbloquear sin dejar teclado colgado -->
+    <div id="pinModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-xl space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="font-bold text-slate-900 text-sm">Introduce el PIN</h4>
+          <button type="button" onclick="closePinModal()" class="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+        </div>
+        <input
+          id="pinInput"
+          type="password"
+          inputmode="numeric"
+          maxlength="8"
+          placeholder="PIN"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();submitPinModal();}"
+          class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm text-center tracking-widest"
+        />
+        <div class="flex justify-end gap-2 pt-1">
+          <button type="button" onclick="closePinModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 cursor-pointer">Cancelar</button>
+          <button type="button" onclick="submitPinModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 cursor-pointer">Aceptar</button>
+        </div>
+      </div>
+    </div>
+
   <script>
     tailwind.config = {
       theme: {
@@ -138,118 +161,9 @@
     </section>
       </div>
 
-      <div id="rightColumn" class="hidden min-w-0">
-    <!-- Panel de Administración -->
-    <section id="editPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-3.5 sm:p-4 space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div>
-          <h3 class="text-base font-bold text-slate-900">Panel de Control · Cargar y Sincronizar</h3>
-          <p class="text-xs text-slate-500">Importa el PDF mensual de JetSched o sincroniza con Firebase Realtime Database</p>
-        </div>
-        <button
-          onclick="lockApp()"
-          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer"
-        >
-          Salir
-        </button>
-      </div>
-
-      <!-- Subir PDF JetSched -->
-      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
-        <label class="block text-sm font-semibold text-slate-800 mb-1">1. Importar PDF de programación (JetSched)</label>
-        <p class="text-xs text-slate-500 mb-3">
-          Detecta libres/vacaciones (verde), salidas/llegadas MAD (naranja), reservas (morado), imaginaria (azul) y estancias fuera con su ciudad (rojo).
-        </p>
-        <div class="flex flex-wrap items-center gap-3">
-          <input
-            id="pdfFileInput"
-            type="file"
-            accept="application/pdf"
-            onchange="handlePdfUpload(event)"
-            class="block text-xs text-slate-600 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
-          />
-          <button
-            onclick="loadSampleDecember2026()"
-            class="px-3 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
-          >
-            Restaurar Dic 2026
-          </button>
-        </div>
-        <p id="parseStatus" class="text-xs font-medium text-purple-700 mt-2.5"></p>
-      </div>
-
-      <!-- Configuración Firebase Realtime Database -->
-      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <label class="block text-sm font-semibold text-slate-800">2. Conexión con Firebase Realtime Database</label>
-          <button
-            type="button"
-            onclick="toggleRulesHelp()"
-            class="text-xs font-semibold text-purple-700 hover:underline cursor-pointer"
-          >
-            Ver reglas sugeridas para Realtime DB
-          </button>
-        </div>
-        <div id="rulesHelpBox" class="hidden text-xs bg-white border border-purple-200 rounded-xl p-3 text-slate-700 space-y-1.5">
-          <p class="font-semibold text-slate-900">En Firebase Console → Realtime Database → Reglas:</p>
-          <pre class="bg-slate-900 text-emerald-300 p-2.5 rounded-lg overflow-x-auto text-[11px]">{
-  "rules": {
-    "turnosFamilia": {
-      ".read": true,
-      ".write": true
-    }
-  }
-}</pre>
-          <p class="text-[11px] text-slate-500">Así tu mujer puede leer en tiempo real y tú puedes modificar/sincronizar sin bloqueo de contraseña.</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <span class="block text-xs font-medium text-slate-600 mb-1">Database URL</span>
-            <input
-              id="fbUrlInput"
-              type="url"
-              placeholder="https://tu-proyecto-default-rtdb.firebaseio.com"
-              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
           </div>
-          <div>
-            <span class="block text-xs font-medium text-slate-600 mb-1">Ruta / Nodo en la BD</span>
-            <input
-              id="fbPathInput"
-              type="text"
-              value="turnosFamilia"
-              placeholder="turnosFamilia"
-              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2 pt-1">
-          <button
-            onclick="saveFirebaseConfigAndSync()"
-            class="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
-          >
-            Guardar y subir mes a Firebase
-          </button>
-          <button
-            onclick="syncCurrentMonthToFirebase()"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
-          >
-            Sincronizar mes actual ahora
-          </button>
-          <button
-            onclick="pullFromFirebaseNow()"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
-          >
-            Descargar cambios de Firebase
-          </button>
-        </div>
-        <p id="fbStatus" class="text-xs text-slate-600"></p>
-      </div>
-    </section>
-      </div>
-    </div>
 
-    <!-- Modal para editar un día -->
+    <!-- Modal para editar un día (PARCHE 3: acceso rápido a libre + selector de 4 estados) -->
     <div id="editDayModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
         <div class="flex items-center justify-between">
@@ -278,17 +192,26 @@
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Destino o etiqueta visible en el cuadro</label>
-          <input id="editTagInput" type="text" placeholder="Ej: Abu Dabi · Roma · Chile · Llega 11:30" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          <div class="relative flex items-center">
+            <input id="editTagInput" type="text" placeholder="Ej: Abu Dabi · Roma · Chile · Llega 11:30" class="w-full pr-9 pl-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            <button type="button" onclick="clearField('editTagInput')" class="absolute right-2 w-6 h-6 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white text-xs font-bold flex items-center justify-center transition cursor-pointer" title="Borrar">✕</button>
+          </div>
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Titular claro para ella</label>
-          <input id="editHeadlineInput" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          <div class="relative flex items-center">
+            <input id="editHeadlineInput" type="text" class="w-full pr-9 pl-3 py-2 rounded-xl border border-slate-300 text-sm" />
+            <button type="button" onclick="clearField('editHeadlineInput')" class="absolute right-2 w-6 h-6 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white text-xs font-bold flex items-center justify-center transition cursor-pointer" title="Borrar">✕</button>
+          </div>
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Detalle de horas / ciudad / notas</label>
-          <textarea id="editNotesInput" rows="3" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"></textarea>
+          <div class="relative">
+            <textarea id="editNotesInput" rows="3" class="w-full pr-9 pl-3 py-2 rounded-xl border border-slate-300 text-sm"></textarea>
+            <button type="button" onclick="clearField('editNotesInput')" class="absolute top-2 right-2 w-6 h-6 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white text-xs font-bold flex items-center justify-center transition cursor-pointer" title="Borrar">✕</button>
+          </div>
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
@@ -309,6 +232,7 @@
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
     }
 
+    // PARCHE 2: Diccionario de destinos legibles para que se vean directo en el calendario
     const AIRPORT_NAMES = {
       LEMD: "Madrid",
       SKBO: "Bogotá",
@@ -327,6 +251,7 @@
       MMUN: "Cancún",
     };
 
+    // Diciembre 2026 con destinos visibles y salidas/llegadas en naranja
     function buildDecember2026() {
       const days = {};
       for (let d = 1; d <= 31; d++) {
@@ -493,6 +418,7 @@
         grid.appendChild(empty);
       }
 
+      // PARCHE 1: Estilos de 4 colores (verde libre, naranja salida/llegada, morado reservas, rojo fuera)
       const styleMap = {
         home: "bg-emerald-50/95 border-emerald-200 text-emerald-950 hover:bg-emerald-100/80",
         transit: "bg-orange-50/95 border-orange-300 text-orange-950 hover:bg-orange-100/80",
@@ -598,42 +524,41 @@
 
     function syncWorkspaceLayout() {
       const grid = document.getElementById("workspaceGrid");
-      const rightCol = document.getElementById("rightColumn");
-      const editPanel = document.getElementById("editPanel");
-      const isLandscape = window.matchMedia("(orientation: landscape) and (min-width: 640px)").matches || window.innerWidth >= 1024;
-
-      if (isUnlocked) {
-        rightCol.classList.remove("hidden");
-        editPanel.classList.remove("hidden");
-        if (isLandscape) {
-          grid.className = "grid grid-cols-1 md:grid-cols-12 gap-3 items-start";
-          document.getElementById("leftColumn").className = "min-w-0 md:col-span-7";
-          rightCol.className = "min-w-0 md:col-span-5 md:sticky md:top-2";
-        } else {
-          grid.className = "grid grid-cols-1 gap-2";
-          document.getElementById("leftColumn").className = "min-w-0";
-          rightCol.className = "min-w-0";
-        }
-      } else {
-        rightCol.classList.add("hidden");
-        editPanel.classList.add("hidden");
-        grid.className = "grid grid-cols-1 gap-2";
-        document.getElementById("leftColumn").className = "min-w-0";
-      }
+      const leftCol = document.getElementById("leftColumn");
+      if (grid) grid.className = "grid grid-cols-1 gap-2";
+      if (leftCol) leftCol.className = "min-w-0";
     }
 
     window.addEventListener("resize", syncWorkspaceLayout);
     window.addEventListener("orientationchange", () => setTimeout(syncWorkspaceLayout, 80));
 
-    function handleLockClick() {
-      if (isUnlocked) {
-        lockApp();
-        return;
+    function dismissKeyboard() {
+      if (document.activeElement && typeof document.activeElement.blur === "function") {
+        document.activeElement.blur();
       }
-      const pin = prompt("Introduce el PIN para desbloquear:");
-      if (pin === null) return;
-      if (pin.trim() === ADMIN_PIN) {
+    }
+
+    function openPinModal() {
+      const modal = document.getElementById("pinModal");
+      const input = document.getElementById("pinInput");
+      input.value = "";
+      modal.classList.remove("hidden");
+      setTimeout(() => input.focus(), 40);
+    }
+
+    function closePinModal() {
+      dismissKeyboard();
+      document.getElementById("pinModal").classList.add("hidden");
+    }
+
+    function submitPinModal() {
+      const input = document.getElementById("pinInput");
+      const pin = (input.value || "").trim();
+      dismissKeyboard();
+      document.getElementById("pinModal").classList.add("hidden");
+      if (pin === ADMIN_PIN) {
         isUnlocked = true;
+        try { history.pushState({ appUnlocked: true }, ""); } catch (_) {}
         document.getElementById("btnLockToggle").textContent = "🔓 Bloquear";
         document.getElementById("btnLockToggle").className =
           "shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-purple-200 bg-purple-600 text-white hover:bg-purple-700 transition cursor-pointer";
@@ -644,6 +569,41 @@
         alert("PIN incorrecto.");
       }
     }
+
+    function handleLockClick() {
+      if (isUnlocked) {
+        lockApp();
+        return;
+      }
+      openPinModal();
+    }
+
+    window.addEventListener("popstate", () => {
+      dismissKeyboard();
+      const editModal = document.getElementById("editDayModal");
+      const pinModal = document.getElementById("pinModal");
+      if (editModal && !editModal.classList.contains("hidden")) {
+        editModal.classList.add("hidden");
+        try { history.pushState({ appKeep: true }, ""); } catch (_) {}
+        return;
+      }
+      if (pinModal && !pinModal.classList.contains("hidden")) {
+        pinModal.classList.add("hidden");
+        try { history.pushState({ appKeep: true }, ""); } catch (_) {}
+        return;
+      }
+      if (isUnlocked) {
+        isUnlocked = false;
+        document.getElementById("btnLockToggle").textContent = "🔒 Desbloquear";
+        document.getElementById("btnLockToggle").className =
+          "shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer";
+        syncWorkspaceLayout();
+        renderAll();
+        try { history.pushState({ appKeep: true }, ""); } catch (_) {}
+      }
+    });
+
+    try { history.replaceState({ appKeep: true }, ""); } catch (_) {}
 
     function lockApp() {
       isUnlocked = false;
@@ -659,11 +619,97 @@
       document.getElementById("rulesHelpBox").classList.toggle("hidden");
     }
 
+    let dayEditSnapshot = null;
+
+    const STATUS_PRESETS = {
+      home: [
+        { label: "Libre", tag: "Libre", headline: "En casa libre", notes: "Día libre en Madrid." },
+        { label: "Vacaciones", tag: "Vacaciones", headline: "En casa · Vacaciones", notes: "Periodo de vacaciones en Madrid." },
+      ],
+      transit: [
+        { label: "Sale MAD", tag: "Sale MAD", headline: "Sales de Madrid", notes: "Salida desde Madrid (hora local)." },
+        { label: "Llega MAD", tag: "Llega MAD", headline: "Llegas a Madrid", notes: "Llegada a Madrid (hora local)." },
+      ],
+      reserve: [
+        { label: "Reserva", tag: "Reservas", headline: "Día de reserva", notes: "Reserva asignada." },
+      ],
+      imaginaria: [
+        { label: "Imaginaria", tag: "Imaginaria", headline: "Imaginaria", notes: "Día de imaginaria asignado." },
+      ],
+      away: [
+        { label: "Abu Dabi", tag: "Abu Dabi", headline: "Fuera de Madrid · Abu Dabi", notes: "Estancia en Abu Dabi." },
+        { label: "Roma", tag: "Roma", headline: "Fuera de Madrid · Roma", notes: "Estancia en Roma." },
+        { label: "Bogotá", tag: "Bogotá", headline: "Fuera de Madrid · Bogotá", notes: "Estancia en Bogotá." },
+        { label: "Chile", tag: "Chile", headline: "Fuera de Madrid · Chile", notes: "Estancia en Chile." },
+      ],
+    };
+
+    function renderQuickPresets(status) {
+      const bar = document.getElementById("quickPresetsBar");
+      if (!bar) return;
+      const list = STATUS_PRESETS[status] || [];
+      bar.innerHTML = "";
+      list.forEach((p) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = `⚡ ${p.label}`;
+        b.className = "px-2 py-1 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer";
+        b.onclick = () => {
+          document.getElementById("editTagInput").value = p.tag;
+          document.getElementById("editHeadlineInput").value = p.headline;
+          document.getElementById("editNotesInput").value = p.notes;
+        };
+        bar.appendChild(b);
+      });
+    }
+
+    function handleStatusSelectChange() {
+      const status = document.getElementById("editStatusSelect").value;
+      renderQuickPresets(status);
+      const first = (STATUS_PRESETS[status] || [])[0];
+      if (first) {
+        document.getElementById("editTagInput").value = first.tag;
+        document.getElementById("editHeadlineInput").value = first.headline;
+        document.getElementById("editNotesInput").value = first.notes;
+      }
+    }
+
+    function clearField(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.value = "";
+      }
+    }
+
+    function clearAllTextFields() {
+      document.getElementById("editTagInput").value = "";
+      document.getElementById("editHeadlineInput").value = "";
+      document.getElementById("editNotesInput").value = "";
+    }
+
+    function restoreDaySnapshot() {
+      if (!dayEditSnapshot) return;
+      document.getElementById("editStatusSelect").value = dayEditSnapshot.status;
+      renderQuickPresets(dayEditSnapshot.status);
+      document.getElementById("editTagInput").value = dayEditSnapshot.tag || "";
+      document.getElementById("editHeadlineInput").value = dayEditSnapshot.headline || "";
+      document.getElementById("editNotesInput").value = dayEditSnapshot.notes || "";
+    }
+
     function openDayEditor() {
+      dismissKeyboard();
       const monthKey = getMonthKey(currentYear, currentMonthIndex);
       const item = ensureMonthMap(monthKey)[selectedDateKey];
+      dayEditSnapshot = {
+        status: item.status,
+        tag: item.tag || "",
+        headline: item.headline || "",
+        notes: item.notes || "",
+      };
+      document.getElementById("restoreDayBtn").classList.remove("hidden");
       document.getElementById("modalDayTitle").textContent = `Editar ${selectedDateKey}`;
       document.getElementById("editStatusSelect").value = item.status;
+      renderQuickPresets(item.status);
       document.getElementById("editTagInput").value = item.tag || "";
       document.getElementById("editHeadlineInput").value = item.headline;
       document.getElementById("editNotesInput").value = item.notes;
@@ -671,6 +717,7 @@
     }
 
     function closeDayEditor() {
+      dismissKeyboard();
       document.getElementById("editDayModal").classList.add("hidden");
     }
 
@@ -707,6 +754,7 @@
       document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026 con destinos y colores.";
     }
 
+    // PARCHE 2: Parser PDF con detección visual de destino (Chile, Bogotá, Roma, Abu Dabi, etc.) y 4 estados
     function detectCityFromText(text) {
       const normalized = text.replace(/\s+/g, " ");
       const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/);
