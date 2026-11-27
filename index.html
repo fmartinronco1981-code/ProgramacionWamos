@@ -6,6 +6,7 @@
   <title>Calendario · Turnos en Familia</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <!-- Modal PIN para desbloquear sin dejar teclado colgado -->
@@ -176,7 +177,7 @@
           <input
             id="pdfFileInput"
             type="file"
-            accept="application/pdf,.rtf,text/rtf,text/plain,.txt"
+            accept="application/pdf,.rtf,text/rtf,text/plain,.txt,.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onchange="handlePdfUpload(event)"
             class="block text-xs text-slate-600 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
           />
@@ -1007,6 +1008,36 @@
       );
     }
 
+    function formatExcelCellDate(val) {
+      if (val == null || val === "") return "";
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        const dd = String(val.getUTCDate()).padStart(2, "0");
+        const mm = String(val.getUTCMonth() + 1).padStart(2, "0");
+        const yy = String(val.getUTCFullYear()).slice(-2);
+        const hh = String(val.getUTCHours()).padStart(2, "0");
+        const mi = String(val.getUTCMinutes()).padStart(2, "0");
+        return `${dd}/${mm}/${yy} ${hh}:${mi}`;
+      }
+      return String(val).trim();
+    }
+
+    function extractSpreadsheetText(arrayBuffer) {
+      if (!window.XLSX) throw new Error("Librería de hojas de cálculo (XLSX) no cargada.");
+      const wb = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+      const lines = [];
+      for (const sheetName of wb.SheetNames) {
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
+        for (const r of rows) {
+          const cells = r.map(formatExcelCellDate).filter((c) => c !== "");
+          if (cells.length > 0) {
+            lines.push(cells.join(" | "));
+          }
+        }
+      }
+      return lines.join("\n");
+    }
+
     async function handlePdfUpload(event) {
       const file = event.target.files?.[0];
       if (!file) return;
@@ -1014,11 +1045,16 @@
       if (statusEl) statusEl.textContent = "Leyendo archivo de programación...";
 
       try {
+        const isXlsOrXlsx = /\.(xls|xlsx)$/i.test(file.name) || /excel|spreadsheetml/i.test(file.type || "");
         const isRtfOrTxt = /\.(rtf|txt)$/i.test(file.name) || /rtf|text\/plain/i.test(file.type || "");
         let fullText = "";
         let formatLabel = "";
 
-        if (isRtfOrTxt) {
+        if (isXlsOrXlsx) {
+          const buf = await file.arrayBuffer();
+          fullText = extractSpreadsheetText(buf);
+          formatLabel = "Jet Scheduler XLS/XLSX";
+        } else if (isRtfOrTxt) {
           const rawText = await file.text();
           fullText = decodeRtfToPlainText(rawText);
           formatLabel = "Jet Scheduler RTF/TXT";
