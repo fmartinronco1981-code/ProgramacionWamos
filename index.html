@@ -873,13 +873,14 @@
       document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026 con destinos y colores.";
     }
 
-    // PARCHE 2: Parser PDF con detección visual de destino (Chile, Bogotá, Roma, Abu Dabi, etc.) y 4 estados
+    // Parser PDF adaptado al formato real de JetSched (6BwAAGETvCYGAA.pdf y similares)
     function detectCityFromText(text) {
       const normalized = text.replace(/\s+/g, " ");
       const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/);
       if (iataMatch && AIRPORT_NAMES[iataMatch[1]]) {
         return AIRPORT_NAMES[iataMatch[1]];
       }
+      if (/\bOMA\b/i.test(normalized)) return "Abu Dabi";
       if (/BOGOTA/i.test(normalized)) return "Bogotá";
       if (/SAO PAULO|GUARULHOS/i.test(normalized)) return "São Paulo";
       if (/ABU DHABI|ABU DABI/i.test(normalized)) return "Abu Dabi";
@@ -894,7 +895,7 @@
       const file = event.target.files?.[0];
       if (!file || !window.pdfjsLib) return;
       const statusEl = document.getElementById("parseStatus");
-      statusEl.textContent = "Leyendo PDF...";
+      if (statusEl) statusEl.textContent = "Leyendo PDF...";
 
       try {
         const buf = await file.arrayBuffer();
@@ -906,11 +907,29 @@
           fullText += "\n" + content.items.map((it) => it.str).join(" ");
         }
 
-        const planMatch = fullText.match(/Planning from\s+(\d{2})\/(\d{2})\/(\d{4})/);
+        const cleanText = fullText.replace(/\s+/g, " ");
+        const dateMatches = [...cleanText.matchAll(/(\d{2})\/(\d{2})\/(\d{2})/g)];
+
+        if (dateMatches.length === 0) {
+          if (statusEl) {
+            statusEl.textContent = `PDF leído (${pdf.numPages} págs.), pero no se encontraron fechas DD/MM/AA en el texto extraído.`;
+          }
+          return;
+        }
+
+        const planMatch = cleanText.match(/Planning from\s+(\d{2})\/(\d{2})\/(\d{4})/);
         let y = planMatch ? Number(planMatch[3]) : currentYear;
         let mIdx = planMatch ? Number(planMatch[2]) - 1 : currentMonthIndex;
+
+        if (!planMatch) {
+          const twoDigitYear = Number(dateMatches[0][3]);
+          y = twoDigitYear >= 70 ? 1900 + twoDigitYear : 2000 + twoDigitYear;
+          mIdx = Math.max(0, Math.min(11, Number(dateMatches[0][2]) - 1));
+        }
+
         const mKey = getMonthKey(y, mIdx);
         const daysInMonth = new Date(y, mIdx + 1, 0).getDate();
+        const twoDigitTargetYear = String(y).slice(-2);
 
         const newMonth = {};
         for (let d = 1; d <= daysInMonth; d++) {
@@ -923,77 +942,106 @@
           };
         }
 
-        const dateRowRegex = /(\d{2})\/(\d{2})\/(\d{2})/g;
-        let match;
-        while ((match = dateRowRegex.exec(fullText)) !== null) {
-          const dayNum = Number(match[1]);
-          const monNum = Number(match[2]);
-          if (monNum !== mIdx + 1 || dayNum < 1 || dayNum > daysInMonth) continue;
-          const dk = `${mKey}-${String(dayNum).padStart(2, "0")}`;
-          const snippet = fullText.slice(Math.max(0, match.index - 40), match.index + 220);
+        const daySnippets = {};
+        for (const dm of dateMatches) {
+          const dayNum = Number(dm[1]);
+          const monNum = Number(dm[2]);
+          const yrStr = dm[3];
+          if (monNum !== mIdx + 1 || yrStr !== twoDigitTargetYear || dayNum < 1 || dayNum > daysInMonth) {
+            continue;
+          }
+          const slice = cleanText.slice(Math.max(0, dm.index - 20), Math.min(cleanText.length, dm.index + 240));
+          if (!daySnippets[dayNum]) daySnippets[dayNum] = [];
+          daySnippets[dayNum].push(slice);
+        }
 
-          if (/VACACIONES/i.test(snippet)) {
+        let matchedDatesCount = Object.keys(daySnippets).length;
+        let detectedNonFreeCount = 0;
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const snippets = daySnippets[d];
+          if (!snippets || snippets.length === 0) continue;
+          const combined = snippets.join(" | ");
+          const dk = `${mKey}-${String(d).padStart(2, "0")}`;
+
+          if (/VACACIONES/i.test(combined)) {
             newMonth[dk] = {
               status: "home",
               tag: "Vacaciones",
               headline: "En casa · Vacaciones",
               notes: "Periodo de vacaciones en Madrid.",
             };
-          } else if (/DAY OFF/i.test(snippet)) {
+          } else if (/DAY\s*OFF/i.test(combined)) {
             newMonth[dk] = {
               status: "home",
               tag: "Libre",
               headline: "En casa libre",
               notes: "Día libre en Madrid.",
             };
-          } else if (/\b(IMAGINARIA)\b/i.test(snippet)) {
+          } else if (/\bIMAGINARIA\b/i.test(combined)) {
             newMonth[dk] = {
               status: "imaginaria",
               tag: "Imaginaria",
               headline: "Imaginaria",
               notes: "Día de imaginaria asignado.",
             };
-          } else if (/\b(RESERVA|SBY|STANDBY)\b/i.test(snippet)) {
+            detectedNonFreeCount++;
+          } else if (/\b(RESERVA|SBY|STANDBY)\b/i.test(combined)) {
             newMonth[dk] = {
               status: "reserve",
               tag: "Reservas",
               headline: "Reservas",
               notes: "Día de reserva asignado.",
             };
-          } else if (/LEMD/i.test(snippet) && !/HOTEL/i.test(snippet)) {
-            const arrMatch = snippet.match(/(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2})\s+LEMD/);
-            const depMatch = snippet.match(/(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2})\s+LEMD\s+\d{2}\/\d{2}\/\d{2}/);
-            const city = detectCityFromText(snippet);
-            if (depMatch) {
+            detectedNonFreeCount++;
+          } else if (/\bHOTEL\b/i.test(combined)) {
+            const city = detectCityFromText(combined) || "Fuera";
+            newMonth[dk] = {
+              status: "away",
+              tag: city,
+              headline: `Fuera de Madrid · ${city}`,
+              notes: `Estancia en hotel (${city}).`,
+            };
+            detectedNonFreeCount++;
+          } else if (/\bLEMD\b/i.test(combined)) {
+            const timeMatches = [...combined.matchAll(/\b(\d{2}:\d{2})\b/g)].map((x) => x[1]);
+            const city = detectCityFromText(combined);
+            const hasArrivalAtLemd = /\b\d{2}:\d{2}\b\s+LEMD/.test(combined);
+            const firstTime = timeMatches[0] || "";
+            if (hasArrivalAtLemd && firstTime) {
               newMonth[dk] = {
                 status: "transit",
-                tag: `Sale ${depMatch[2]}`,
-                headline: `Sales de Madrid a las ${depMatch[2]}${city ? ` hacia ${city}` : ""}`,
-                notes: "Salida desde Madrid (hora local de Madrid).",
+                tag: `Llega ${firstTime}`,
+                headline: `Llega/movimiento LEMD (${firstTime})${city ? ` · ${city}` : ""}`,
+                notes: "Movimiento asociado a Madrid (LEMD).",
               };
-            } else if (arrMatch) {
+            } else if (firstTime) {
               newMonth[dk] = {
                 status: "transit",
-                tag: `Llega ${arrMatch[2]}`,
-                headline: `Llegas a Madrid a las ${arrMatch[2]}${city ? ` desde ${city}` : ""}`,
-                notes: "Aterrizaje en Madrid (hora local de Madrid).",
+                tag: `Sale ${firstTime}`,
+                headline: `Sale/movimiento LEMD (${firstTime})${city ? ` · ${city}` : ""}`,
+                notes: "Movimiento asociado a Madrid (LEMD).",
               };
             } else {
               newMonth[dk] = {
                 status: "transit",
                 tag: "Salida/Llegada",
-                headline: `Salida o llegada${city ? ` (${city})` : ""}`,
+                headline: `Movimiento LEMD${city ? ` · ${city}` : ""}`,
                 notes: "Revisa la hora exacta en el detalle del vuelo.",
               };
             }
-          } else if (/HOTEL/i.test(snippet)) {
-            const city = detectCityFromText(snippet) || "Fuera";
-            newMonth[dk] = {
-              status: "away",
-              tag: city,
-              headline: `Fuera de Madrid · ${city}`,
-              notes: `Estancia en ${city}.`,
-            };
+            detectedNonFreeCount++;
+          } else {
+            const city = detectCityFromText(combined);
+            if (city) {
+              newMonth[dk] = {
+                status: "away",
+                tag: city,
+                headline: `Fuera de Madrid · ${city}`,
+                notes: `Actividad o vuelo con destino/escala en ${city}.`,
+              };
+              detectedNonFreeCount++;
+            }
           }
         }
 
@@ -1003,9 +1051,12 @@
         selectedDateKey = `${mKey}-01`;
         persistLocalRoster();
         renderAll();
-        statusEl.textContent = `Importado ${mKey} (${pdf.numPages} págs.) con destinos visibles. Sincroniza con Firebase cuando quieras.`;
+
+        if (statusEl) {
+          statusEl.textContent = `Importado ${mKey} (${pdf.numPages} págs., ${matchedDatesCount} días con fecha leídos, ${detectedNonFreeCount} días de vuelo/hotel/turno detectados).`;
+        }
       } catch (err) {
-        statusEl.textContent = "Error leyendo el PDF: " + err.message;
+        if (statusEl) statusEl.textContent = "Error leyendo el PDF: " + err.message;
       }
     }
 
