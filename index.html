@@ -161,7 +161,105 @@
     </section>
       </div>
 
+      <div id="rightColumn" class="hidden min-w-0">
+    <!-- Panel de Administración -->
+
+    <section id="editPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-3.5 sm:p-4 space-y-4">
+
+      <!-- Subir PDF JetSched -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
+        <label class="block text-sm font-semibold text-slate-800 mb-1">1. Importar PDF de programación (JetSched)</label>
+        <p class="text-xs text-slate-500 mb-3">
+          Detecta libres/vacaciones (verde), salidas/llegadas MAD (naranja), reservas (morado) y estancias fuera con su ciudad (rojo).
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <input
+            id="pdfFileInput"
+            type="file"
+            accept="application/pdf"
+            onchange="handlePdfUpload(event)"
+            class="block text-xs text-slate-600 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
+          />
+          <button
+            onclick="loadSampleDecember2026()"
+            class="px-3 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+          >
+            Restaurar Dic 2026
+          </button>
+        </div>
+        <p id="parseStatus" class="text-xs font-medium text-purple-700 mt-2.5"></p>
+      </div>
+
+      <!-- Configuración Firebase Realtime Database -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <label class="block text-sm font-semibold text-slate-800">2. Conexión con Firebase Realtime Database</label>
+          <button
+            type="button"
+            onclick="toggleRulesHelp()"
+            class="text-xs font-semibold text-purple-700 hover:underline cursor-pointer"
+          >
+            Ver reglas sugeridas para Realtime DB
+          </button>
+        </div>
+        <div id="rulesHelpBox" class="hidden text-xs bg-white border border-purple-200 rounded-xl p-3 text-slate-700 space-y-1.5">
+          <p class="font-semibold text-slate-900">En Firebase Console → Realtime Database → Reglas:</p>
+          <pre class="bg-slate-900 text-emerald-300 p-2.5 rounded-lg overflow-x-auto text-[11px]">{
+  "rules": {
+    "turnosFamilia": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}</pre>
+          <p class="text-[11px] text-slate-500">Así tu mujer puede leer en tiempo real y tú puedes modificar/sincronizar sin bloqueo de contraseña.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <span class="block text-xs font-medium text-slate-600 mb-1">Database URL</span>
+            <input
+              id="fbUrlInput"
+              type="url"
+              placeholder="https://tu-proyecto-default-rtdb.firebaseio.com"
+              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
           </div>
+          <div>
+            <span class="block text-xs font-medium text-slate-600 mb-1">Ruta / Nodo en la BD</span>
+            <input
+              id="fbPathInput"
+              type="text"
+              value="turnosFamilia"
+              placeholder="turnosFamilia"
+              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <button
+            onclick="saveFirebaseConfigAndSync()"
+            class="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
+          >
+            Guardar y subir mes a Firebase
+          </button>
+          <button
+            onclick="syncCurrentMonthToFirebase()"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
+          >
+            Sincronizar mes actual ahora
+          </button>
+          <button
+            onclick="pullFromFirebaseNow()"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+          >
+            Descargar cambios de Firebase
+          </button>
+        </div>
+        <p id="fbStatus" class="text-xs text-slate-600"></p>
+      </div>
+    </section>
+      </div>
+    </div>
 
     <!-- Modal para editar un día (PARCHE 3: acceso rápido a libre + selector de 4 estados) -->
     <div id="editDayModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
@@ -524,9 +622,28 @@
 
     function syncWorkspaceLayout() {
       const grid = document.getElementById("workspaceGrid");
-      const leftCol = document.getElementById("leftColumn");
-      if (grid) grid.className = "grid grid-cols-1 gap-2";
-      if (leftCol) leftCol.className = "min-w-0";
+      const rightCol = document.getElementById("rightColumn");
+      const editPanel = document.getElementById("editPanel");
+      const isLandscape = window.matchMedia("(orientation: landscape) and (min-width: 640px)").matches || window.innerWidth >= 1024;
+
+      if (isUnlocked) {
+        rightCol.classList.remove("hidden");
+        editPanel.classList.remove("hidden");
+        if (isLandscape) {
+          grid.className = "grid grid-cols-1 md:grid-cols-12 gap-3 items-start";
+          document.getElementById("leftColumn").className = "min-w-0 md:col-span-7";
+          rightCol.className = "min-w-0 md:col-span-5 md:sticky md:top-2";
+        } else {
+          grid.className = "grid grid-cols-1 gap-2";
+          document.getElementById("leftColumn").className = "min-w-0";
+          rightCol.className = "min-w-0";
+        }
+      } else {
+        rightCol.classList.add("hidden");
+        editPanel.classList.add("hidden");
+        grid.className = "grid grid-cols-1 gap-2";
+        document.getElementById("leftColumn").className = "min-w-0";
+      }
     }
 
     window.addEventListener("resize", syncWorkspaceLayout);
@@ -606,6 +723,7 @@
     try { history.replaceState({ appKeep: true }, ""); } catch (_) {}
 
     function lockApp() {
+      dismissKeyboard();
       isUnlocked = false;
       document.getElementById("editDayModal").classList.add("hidden");
       document.getElementById("btnLockToggle").textContent = "🔒 Desbloquear";
@@ -706,7 +824,7 @@
         headline: item.headline || "",
         notes: item.notes || "",
       };
-      document.getElementById("restoreDayBtn")?.classList.remove("hidden");
+      document.getElementById("restoreDayBtn").classList.remove("hidden");
       document.getElementById("modalDayTitle").textContent = `Editar ${selectedDateKey}`;
       document.getElementById("editStatusSelect").value = item.status;
       renderQuickPresets(item.status);
@@ -751,7 +869,7 @@
       selectedDateKey = "2026-12-03";
       persistLocalRoster();
       renderAll();
-      const _ps = document.getElementById("parseStatus"); if (_ps) _ps.textContent = "Restaurado diciembre 2026 con destinos y colores.";
+      document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026 con destinos y colores.";
     }
 
     // PARCHE 2: Parser PDF con detección visual de destino (Chile, Bogotá, Roma, Abu Dabi, etc.) y 4 estados
@@ -895,10 +1013,8 @@
       try {
         saved = JSON.parse(localStorage.getItem(FB_CFG_KEY) || "{}");
       } catch (_) {}
-      const urlEl = document.getElementById("fbUrlInput");
-      const pathEl = document.getElementById("fbPathInput");
-      if (urlEl) urlEl.value = saved.databaseURL || DEFAULT_FIREBASE_URL;
-      if (pathEl) pathEl.value = saved.path || DEFAULT_FIREBASE_PATH;
+      document.getElementById("fbUrlInput").value = saved.databaseURL || DEFAULT_FIREBASE_URL;
+      document.getElementById("fbPathInput").value = saved.path || DEFAULT_FIREBASE_PATH;
     }
 
     function initFirebaseFromConfig() {
@@ -931,7 +1047,7 @@
     }
 
     async function pullFromFirebaseNow() {
-      const fbStatus = document.getElementById("fbStatus") || { textContent: "" };
+      const fbStatus = document.getElementById("fbStatus");
       if (!dbRef) initFirebaseFromConfig();
       if (!dbRef) {
         fbStatus.textContent = "Primero pon y guarda tu Database URL.";
@@ -967,7 +1083,7 @@
     }
 
     async function syncCurrentMonthToFirebase() {
-      const fbStatus = document.getElementById("fbStatus") || { textContent: "" };
+      const fbStatus = document.getElementById("fbStatus");
       if (!dbRef) initFirebaseFromConfig();
       if (!dbRef) {
         fbStatus.textContent = "Primero guarda una Database URL válida.";
