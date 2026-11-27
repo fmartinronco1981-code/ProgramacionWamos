@@ -32,22 +32,42 @@
     .day-cell:active {
       transform: scale(0.97);
     }
+    body.tablet-force .tablet-shell {
+      max-width: 100% !important;
+      padding-top: 0.35rem !important;
+      padding-bottom: 0.5rem !important;
+    }
+    body.tablet-force .day-cell {
+      min-height: 40px !important;
+      padding: 0.25rem 0.35rem !important;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen antialiased">
-  <div id="app" class="max-w-3xl lg:max-w-6xl mx-auto px-2.5 sm:px-6 py-2 pb-10">
+  <div id="app" class="tablet-shell max-w-3xl lg:max-w-6xl mx-auto px-2.5 sm:px-6 py-1.5 pb-6">
     <span id="syncBadge" class="sr-only">Modo local · Listo para Firebase</span>
-    <!-- Cabecera compacta: título a la izquierda, desbloquear pequeñito arriba a la derecha -->
-    <header class="flex items-center justify-between gap-2 mb-2">
+    <!-- Cabecera compacta: título a la izquierda, botón modo tablet y desbloquear arriba a la derecha -->
+    <header class="flex items-center justify-between gap-2 mb-1.5">
       <h1 class="text-base sm:text-xl font-bold text-slate-900 leading-tight truncate">¿Cuándo está en casa?</h1>
 
-      <button
-        id="btnLockToggle"
-        onclick="handleLockClick()"
-        class="shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-      >
-        🔒 Desbloquear
-      </button>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button
+          id="btnTabletMode"
+          type="button"
+          onclick="toggleTabletMode()"
+          class="shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+          title="Alternar vista apaisada tipo tablet"
+        >
+          📱 Tablet
+        </button>
+        <button
+          id="btnLockToggle"
+          onclick="handleLockClick()"
+          class="shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+        >
+          🔒 Desbloquear
+        </button>
+      </div>
     </header>
 
     <!-- Espacio de trabajo: en modo apaisado o ancho, calendario a la izquierda y edición a la derecha -->
@@ -140,6 +160,7 @@
 
       <div id="rightColumn" class="hidden min-w-0">
     <!-- Panel de Administración -->
+
     <section id="editPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-3.5 sm:p-4 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
@@ -158,7 +179,7 @@
       <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
         <label class="block text-sm font-semibold text-slate-800 mb-1">1. Importar PDF de programación (JetSched)</label>
         <p class="text-xs text-slate-500 mb-3">
-          Detecta libres/vacaciones (verde), salidas/llegadas MAD (naranja), reservas (morado), imaginaria (azul) y estancias fuera con su ciudad (rojo).
+          Detecta libres/vacaciones (verde), salidas/llegadas MAD (naranja), reservas (morado) y estancias fuera con su ciudad (rojo).
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <input
@@ -249,7 +270,7 @@
       </div>
     </div>
 
-    <!-- Modal para editar un día -->
+    <!-- Modal para editar un día (PARCHE 3: acceso rápido a libre + selector de 4 estados) -->
     <div id="editDayModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
         <div class="flex items-center justify-between">
@@ -309,6 +330,7 @@
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
     }
 
+    // PARCHE 2: Diccionario de destinos legibles para que se vean directo en el calendario
     const AIRPORT_NAMES = {
       LEMD: "Madrid",
       SKBO: "Bogotá",
@@ -327,6 +349,7 @@
       MMUN: "Cancún",
     };
 
+    // Diciembre 2026 con destinos visibles y salidas/llegadas en naranja
     function buildDecember2026() {
       const days = {};
       for (let d = 1; d <= 31; d++) {
@@ -493,6 +516,7 @@
         grid.appendChild(empty);
       }
 
+      // PARCHE 1: Estilos de 4 colores (verde libre, naranja salida/llegada, morado reservas, rojo fuera)
       const styleMap = {
         home: "bg-emerald-50/95 border-emerald-200 text-emerald-950 hover:bg-emerald-100/80",
         transit: "bg-orange-50/95 border-orange-300 text-orange-950 hover:bg-orange-100/80",
@@ -596,19 +620,47 @@
       renderAll();
     }
 
+    let isTabletMode = false;
+
+    function updateTabletButtonUI() {
+      const btn = document.getElementById("btnTabletMode");
+      if (!btn) return;
+      if (isTabletMode) {
+        btn.textContent = "📱 Móvil";
+        btn.className =
+          "shrink-0 px-2 py-1 rounded-lg text-[11px] font-semibold border border-sky-300 bg-sky-600 text-white transition cursor-pointer";
+        document.body.classList.add("tablet-force");
+      } else {
+        btn.textContent = "📱 Tablet";
+        btn.className =
+          "shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer";
+        document.body.classList.remove("tablet-force");
+      }
+    }
+
+    function toggleTabletMode() {
+      isTabletMode = !isTabletMode;
+      updateTabletButtonUI();
+      syncWorkspaceLayout();
+    }
+
     function syncWorkspaceLayout() {
       const grid = document.getElementById("workspaceGrid");
       const rightCol = document.getElementById("rightColumn");
       const editPanel = document.getElementById("editPanel");
-      const isLandscape = window.matchMedia("(orientation: landscape) and (min-width: 640px)").matches || window.innerWidth >= 1024;
+      const dayDetail = document.getElementById("dayDetailCard");
+      const isNaturalLandscape =
+        window.matchMedia("(orientation: landscape) and (min-width: 640px)").matches || window.innerWidth >= 1024;
+      const isLandscape = isTabletMode || isNaturalLandscape;
 
       if (isUnlocked) {
         rightCol.classList.remove("hidden");
         editPanel.classList.remove("hidden");
+        dayDetail.className = "bg-white rounded-xl border border-slate-200/80 shadow-sm p-2 sm:p-2.5 mb-1.5";
         if (isLandscape) {
-          grid.className = "grid grid-cols-1 md:grid-cols-12 gap-3 items-start";
-          document.getElementById("leftColumn").className = "min-w-0 md:col-span-7";
-          rightCol.className = "min-w-0 md:col-span-5 md:sticky md:top-2";
+          grid.className = "grid grid-cols-12 gap-2.5 items-start";
+          document.getElementById("leftColumn").className = "min-w-0 col-span-7";
+          rightCol.className = "min-w-0 col-span-5 sticky top-1.5";
         } else {
           grid.className = "grid grid-cols-1 gap-2";
           document.getElementById("leftColumn").className = "min-w-0";
@@ -617,8 +669,23 @@
       } else {
         rightCol.classList.add("hidden");
         editPanel.classList.add("hidden");
-        grid.className = "grid grid-cols-1 gap-2";
-        document.getElementById("leftColumn").className = "min-w-0";
+        if (isLandscape) {
+          grid.className = "grid grid-cols-12 gap-2.5 items-start";
+          document.getElementById("leftColumn").className = "min-w-0 col-span-8";
+          // En modo tablet bloqueado, mostramos el detalle del día al lado en una tarjeta compacta
+          dayDetail.className = "bg-white rounded-xl border border-slate-200/80 shadow-sm p-2.5 col-span-4 sticky top-1.5";
+          if (dayDetail.parentElement !== grid) {
+            grid.appendChild(dayDetail);
+          }
+        } else {
+          grid.className = "grid grid-cols-1 gap-1.5";
+          document.getElementById("leftColumn").className = "min-w-0";
+          dayDetail.className = "bg-white rounded-xl border border-slate-200/80 shadow-sm p-2 sm:p-2.5 mb-1.5";
+          const leftCol = document.getElementById("leftColumn");
+          if (dayDetail.parentElement !== leftCol) {
+            leftCol.appendChild(dayDetail);
+          }
+        }
       }
     }
 
@@ -707,6 +774,7 @@
       document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026 con destinos y colores.";
     }
 
+    // PARCHE 2: Parser PDF con detección visual de destino (Chile, Bogotá, Roma, Abu Dabi, etc.) y 4 estados
     function detectCityFromText(text) {
       const normalized = text.replace(/\s+/g, " ");
       const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/);
