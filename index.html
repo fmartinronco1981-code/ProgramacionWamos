@@ -51,7 +51,7 @@
       </button>
     </header>
 
-    <!-- Selector de mes y leyenda (PARCHE 1: 4 colores) -->
+    <!-- Selector de mes y leyenda (PARCHE 1: 4 colores -> Verde libre, Naranja salida/llegada, Morado reservas, Rojo fuera) -->
     <section class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-4">
       <div class="flex items-center justify-between gap-2 mb-4">
         <button
@@ -76,7 +76,7 @@
         </button>
       </div>
 
-      <!-- Leyenda: Verde = En casa libre, Naranja = Llegadas/Salidas, Azul = Imaginarias, Rojo = Fuera (Destino) -->
+      <!-- Leyenda: Verde = En casa libre, Naranja = Salida / Llegada, Morado = Reservas, Rojo = Fuera (Destino) -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-medium">
         <div class="flex items-center gap-2 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-xl px-2.5 py-2">
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
@@ -84,11 +84,11 @@
         </div>
         <div class="flex items-center gap-2 bg-orange-50 text-orange-900 border border-orange-200/80 rounded-xl px-2.5 py-2">
           <span class="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0"></span>
-          <span>Llegada / Salida</span>
+          <span>Salida / Llegada</span>
         </div>
-        <div class="flex items-center gap-2 bg-sky-50 text-sky-900 border border-sky-200/80 rounded-xl px-2.5 py-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-sky-500 shrink-0"></span>
-          <span>Imaginaria</span>
+        <div class="flex items-center gap-2 bg-purple-50 text-purple-900 border border-purple-200/80 rounded-xl px-2.5 py-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0"></span>
+          <span>Reservas</span>
         </div>
         <div class="flex items-center gap-2 bg-rose-50 text-rose-900 border border-rose-200/80 rounded-xl px-2.5 py-2">
           <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
@@ -131,7 +131,7 @@
     </section>
 
     <!-- Panel de Administración -->
-    <section id="adminPanel" class="hidden bg-white rounded-2xl border-2 border-sky-200 shadow-md p-4 sm:p-5 space-y-5">
+    <section id="adminPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-4 sm:p-5 space-y-5">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
           <h3 class="text-base font-bold text-slate-900">Panel de Control · Cargar y Sincronizar</h3>
@@ -149,7 +149,7 @@
       <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
         <label class="block text-sm font-semibold text-slate-800 mb-1">1. Importar PDF de programación (JetSched)</label>
         <p class="text-xs text-slate-500 mb-3">
-          Detecta libres/vacaciones (verde), llegadas/salidas MAD (naranja), imaginarias (azul) y estancias fuera con su ciudad (rojo).
+          Detecta libres/vacaciones (verde), salidas/llegadas MAD (naranja), reservas (morado) y estancias fuera con su ciudad (rojo).
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <input
@@ -157,7 +157,7 @@
             type="file"
             accept="application/pdf"
             onchange="handlePdfUpload(event)"
-            class="block text-xs text-slate-600 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-sky-600 file:text-white hover:file:bg-sky-700 cursor-pointer"
+            class="block text-xs text-slate-600 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
           />
           <button
             onclick="loadSampleDecember2026()"
@@ -166,7 +166,7 @@
             Restaurar Dic 2026
           </button>
         </div>
-        <p id="parseStatus" class="text-xs font-medium text-sky-700 mt-2.5"></p>
+        <p id="parseStatus" class="text-xs font-medium text-purple-700 mt-2.5"></p>
       </div>
 
       <!-- Configuración Firebase Realtime Database -->
@@ -179,7 +179,7 @@
               id="fbUrlInput"
               type="url"
               placeholder="https://tu-proyecto-default-rtdb.firebaseio.com"
-              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
           <div>
@@ -189,7 +189,7 @@
               type="text"
               value="turnosFamilia"
               placeholder="turnosFamilia"
-              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
         </div>
@@ -202,7 +202,7 @@
           </button>
           <button
             onclick="syncCurrentMonthToFirebase()"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-sky-600 text-white hover:bg-sky-700 cursor-pointer"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
           >
             Sincronizar mes actual ahora
           </button>
@@ -231,8 +231,8 @@
           <label class="block text-xs font-semibold text-slate-600 mb-1">Color / Estado</label>
           <select id="editStatusSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
             <option value="home">🟢 En casa libre</option>
-            <option value="transit">🟠 Llegada / Salida Madrid</option>
-            <option value="reserve">🔵 Imaginaria / Reserva</option>
+            <option value="transit">🟠 Salida / Llegada</option>
+            <option value="reserve">🟣 Reservas</option>
             <option value="away">🔴 Fuera (con destino)</option>
           </select>
         </div>
@@ -254,7 +254,7 @@
 
         <div class="flex justify-end gap-2 pt-2">
           <button onclick="closeDayEditor()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 cursor-pointer">Cancelar</button>
-          <button onclick="saveDayEdit()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-sky-600 text-white hover:bg-sky-700 cursor-pointer">Guardar día</button>
+          <button onclick="saveDayEdit()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 cursor-pointer">Guardar día</button>
         </div>
       </div>
     </div>
@@ -289,7 +289,7 @@
       MMUN: "Cancún",
     };
 
-    // Diciembre 2026 con destinos visibles y llegadas/salidas en naranja
+    // Diciembre 2026 con destinos visibles y salidas/llegadas en naranja
     function buildDecember2026() {
       const days = {};
       for (let d = 1; d <= 31; d++) {
@@ -320,7 +320,7 @@
             status: "home",
             tag: "Libre",
             headline: "En casa libre",
-            notes: "Día libre en Madrid, sin turnos ni imaginarias.",
+            notes: "Día libre en Madrid, sin turnos ni reservas.",
           };
         } else if (d >= 6 && d <= 19) {
           days[key] = {
@@ -378,7 +378,7 @@
       return { "2026-12": days };
     }
 
-    const STORAGE_KEY = "turnos_familia_roster_v3";
+    const STORAGE_KEY = "turnos_familia_roster_v4";
     const FB_CFG_KEY = "turnos_familia_fb_cfg_v1";
 
     let rosterData = loadInitialRoster();
@@ -441,7 +441,7 @@
       const reserveCount = values.filter((x) => x.status === "reserve").length;
       const awayCount = values.filter((x) => x.status === "away").length;
       document.getElementById("monthStats").textContent =
-        `${homeCount} libre · ${transitCount} llegada/salida · ${reserveCount} imaginaria · ${awayCount} fuera`;
+        `${homeCount} libre · ${transitCount} salida/llegada · ${reserveCount} reservas · ${awayCount} fuera`;
 
       const firstDayMondayIdx = (dateObj.getDay() + 6) % 7;
       const daysInMonth = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
@@ -455,17 +455,17 @@
         grid.appendChild(empty);
       }
 
-      // PARCHE 1: Estilos de 4 colores (verde libre, naranja llegada/salida, azul imaginaria, rojo fuera)
+      // PARCHE 1: Estilos de 4 colores (verde libre, naranja salida/llegada, morado reservas, rojo fuera)
       const styleMap = {
         home: "bg-emerald-50/95 border-emerald-200 text-emerald-950 hover:bg-emerald-100/80",
         transit: "bg-orange-50/95 border-orange-300 text-orange-950 hover:bg-orange-100/80",
-        reserve: "bg-sky-50/95 border-sky-300 text-sky-950 hover:bg-sky-100/80",
+        reserve: "bg-purple-50/95 border-purple-300 text-purple-950 hover:bg-purple-100/80",
         away: "bg-rose-50/95 border-rose-200 text-rose-950 hover:bg-rose-100/80",
       };
       const dotMap = {
         home: "bg-emerald-500",
         transit: "bg-orange-500",
-        reserve: "bg-sky-500",
+        reserve: "bg-purple-500",
         away: "bg-rose-500",
       };
 
@@ -488,9 +488,9 @@
           item.status === "home"
             ? "Libre"
             : item.status === "transit"
-            ? "MAD"
+            ? "Salida/Llegada"
             : item.status === "reserve"
-            ? "Imaginaria"
+            ? "Reserva"
             : "Fuera";
 
         btn.innerHTML = `
@@ -526,10 +526,10 @@
         badge.textContent = "🟢 En casa libre";
       } else if (item.status === "transit") {
         badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-orange-100 text-orange-800";
-        badge.textContent = "🟠 Llegada / Salida Madrid";
+        badge.textContent = "🟠 Salida / Llegada";
       } else if (item.status === "reserve") {
-        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-sky-100 text-sky-800";
-        badge.textContent = "🔵 Imaginaria";
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-purple-100 text-purple-800";
+        badge.textContent = "🟣 Reservas";
       } else {
         badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-rose-100 text-rose-800";
         badge.textContent = `🔴 Fuera · ${item.tag || "Destino"}`;
@@ -625,7 +625,7 @@
     // PARCHE 2: Parser PDF con detección visual de destino (Chile, Bogotá, Roma, Abu Dabi, etc.) y 4 estados
     function detectCityFromText(text) {
       const normalized = text.replace(/\s+/g, " ");
-      const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/);
+      const iataMatch = normalized.match(/ (SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN) /);
       if (iataMatch && AIRPORT_NAMES[iataMatch[1]]) {
         return AIRPORT_NAMES[iataMatch[1]];
       }
@@ -652,7 +652,8 @@
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
           const content = await page.getTextContent();
-          fullText += "\n" + content.items.map((it) => it.str).join(" ");
+          fullText += "
+" + content.items.map((it) => it.str).join(" ");
         }
 
         const planMatch = fullText.match(/Planning from\s+(\d{2})\/(\d{2})\/(\d{4})/);
@@ -695,12 +696,12 @@
               headline: "En casa libre",
               notes: "Día libre en Madrid.",
             };
-          } else if (/\b(RESERVA|SBY|STANDBY|IMAGINARIA)\b/i.test(snippet)) {
+          } else if (/ (RESERVA|SBY|STANDBY|IMAGINARIA) /i.test(snippet)) {
             newMonth[dk] = {
               status: "reserve",
-              tag: "Imaginaria",
-              headline: "Imaginaria / Reserva en Madrid",
-              notes: "Día de imaginaria programada.",
+              tag: "Reservas",
+              headline: "Reservas",
+              notes: "Día de reserva asignado.",
             };
           } else if (/LEMD/i.test(snippet) && !/HOTEL/i.test(snippet)) {
             const arrMatch = snippet.match(/(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2})\s+LEMD/);
@@ -723,8 +724,8 @@
             } else {
               newMonth[dk] = {
                 status: "transit",
-                tag: "Vuelo MAD",
-                headline: `Llegada o salida en Madrid${city ? ` (${city})` : ""}`,
+                tag: "Salida/Llegada",
+                headline: `Salida o llegada${city ? ` (${city})` : ""}`,
                 notes: "Revisa la hora exacta en el detalle del vuelo.",
               };
             }
