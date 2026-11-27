@@ -625,7 +625,7 @@
     // PARCHE 2: Parser PDF con detección visual de destino (Chile, Bogotá, Roma, Abu Dabi, etc.) y 4 estados
     function detectCityFromText(text) {
       const normalized = text.replace(/\s+/g, " ");
-      const iataMatch = normalized.match(/ (SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN) /);
+      const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/);
       if (iataMatch && AIRPORT_NAMES[iataMatch[1]]) {
         return AIRPORT_NAMES[iataMatch[1]];
       }
@@ -652,8 +652,7 @@
         for (let p = 1; p <= pdf.numPages; p++) {
           const page = await pdf.getPage(p);
           const content = await page.getTextContent();
-          fullText += "
-" + content.items.map((it) => it.str).join(" ");
+          fullText += "\n" + content.items.map((it) => it.str).join(" ");
         }
 
         const planMatch = fullText.match(/Planning from\s+(\d{2})\/(\d{2})\/(\d{4})/);
@@ -696,7 +695,7 @@
               headline: "En casa libre",
               notes: "Día libre en Madrid.",
             };
-          } else if (/ (RESERVA|SBY|STANDBY|IMAGINARIA) /i.test(snippet)) {
+          } else if (/\b(RESERVA|SBY|STANDBY|IMAGINARIA)\b/i.test(snippet)) {
             newMonth[dk] = {
               status: "reserve",
               tag: "Reservas",
