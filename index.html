@@ -66,6 +66,7 @@
       <h1 class="text-base sm:text-xl font-bold text-slate-900 leading-tight truncate">¿Cuándo está en casa?</h1>
 
       <div class="flex items-center gap-1.5 shrink-0">
+        <span id="headerMadridClock" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold border border-slate-200 bg-slate-100 text-slate-800 tabular-nums">🕐 MAD --:--</span>
         <span id="offlineStatusBadge" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-800">📶 Guardado en movil</span>
         <button
           id="btnLockToggle"
@@ -152,7 +153,8 @@
             <h3 id="detailDateTitle" class="text-xs sm:text-sm font-bold text-slate-900 capitalize"></h3>
           </div>
           <p id="detailHeadline" class="text-xs sm:text-sm font-semibold text-slate-800"></p>
-          <p id="detailNotes" class="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-snug"></p>
+          <p id="detailMadridBar" class="text-[11px] font-semibold text-indigo-700 bg-indigo-50/90 border border-indigo-200/80 rounded-lg px-2 py-0.5 mt-1 inline-block tabular-nums"></p>
+          <p id="detailNotes" class="text-[11px] sm:text-xs text-slate-600 mt-1 leading-snug"></p>
         </div>
         <button
           id="editDayBtn"
@@ -375,7 +377,7 @@
       MMUN: "Cancún",
     };
 
-    // Diciembre 2026 con destinos visibles y salidas/llegadas en naranja
+    // Diciembre 2026 con destinos visibles, salidas/llegadas en naranja y equivalencia en hora de Madrid
     function buildDecember2026() {
       const days = {};
       for (let d = 1; d <= 31; d++) {
@@ -383,27 +385,34 @@
         if (d === 1) {
           days[key] = {
             status: "away",
+            icao: "SKBO",
             tag: "Bogotá",
-            headline: "Fuera · Bogotá (vuelo nocturno a São Paulo)",
-            notes: "En Bogotá; despegas a las 23:55 (hora local de Bogotá) hacia São Paulo.",
+            madTimeHint: "05:55+1",
+            headline: "Fuera · Bogotá (despegue 05:55 hora Madrid)",
+            notes: "En Bogotá; despegas a las 23:55 LT (05:55 del día 2 en Madrid) hacia São Paulo.",
           };
         } else if (d === 2) {
           days[key] = {
             status: "away",
+            icao: "SBGR",
             tag: "São Paulo",
-            headline: "Fuera · São Paulo (regreso a Madrid)",
-            notes: "Escala en São Paulo y despegue hacia Madrid a las 19:55 (hora local de Brasil; 23:55 en Madrid).",
+            madTimeHint: "23:55",
+            headline: "Fuera · São Paulo (despegue 23:55 hora Madrid)",
+            notes: "Escala en São Paulo y despegue hacia Madrid a las 19:55 LT (23:55 en Madrid).",
           };
         } else if (d === 3) {
           days[key] = {
             status: "transit",
+            icao: "LEMD",
             tag: "Llega 11:30",
+            madTimeHint: "11:30",
             headline: "Llegas a Madrid a las 11:30 (fin a las 11:40)",
-            notes: "Aterrizaje en Madrid a las 11:30 hora local. Desde mediodía ya estás en casa.",
+            notes: "Aterrizaje en Madrid a las 11:30 hora Madrid. Desde mediodía ya estás en casa.",
           };
         } else if (d === 4 || d === 5) {
           days[key] = {
             status: "home",
+            icao: "LEMD",
             tag: "Libre",
             headline: "En casa libre",
             notes: "Día libre en Madrid, sin turnos ni reservas.",
@@ -411,6 +420,7 @@
         } else if (d >= 6 && d <= 19) {
           days[key] = {
             status: "home",
+            icao: "LEMD",
             tag: "Vacaciones",
             headline: "En casa · Vacaciones",
             notes: "Vacaciones en Madrid (del 6 al 19 de diciembre).",
@@ -418,43 +428,75 @@
         } else if (d === 20) {
           days[key] = {
             status: "transit",
+            icao: "OMAA",
             tag: "Sale 21:10",
+            madTimeHint: "21:10",
             headline: "Sales de Madrid a las 21:10 hacia Abu Dabi",
-            notes: "Firma en Madrid a las 19:40 y despegue a las 21:10 (hora local de Madrid).",
+            notes: "Firma en Madrid a las 19:40 y despegue a las 21:10 hora Madrid.",
           };
         } else if (d === 21 || d === 24 || d === 25 || d === 28) {
-          let notes = "Estancia en Abu Dabi.";
-          if (d === 21) notes = "Aterrizas en Abu Dabi a las 07:20 (hora local de allí) y descanso en hotel.";
-          if (d === 24) notes = "Regresas desde Roma y aterrizas en Abu Dabi a las 07:05 (hora local).";
-          if (d === 28) notes = "Regresas desde Roma y aterrizas en Abu Dabi a las 07:05 (hora local).";
+          let notes = "Estancia en Abu Dabi (+3h respecto a Madrid).";
+          let madTimeHint = "";
+          if (d === 21) {
+            notes = "Aterrizas en Abu Dabi a las 07:20 LT (04:20 hora Madrid) y descanso en hotel.";
+            madTimeHint = "04:20";
+          }
+          if (d === 24) {
+            notes = "Regresas desde Roma y aterrizas en Abu Dabi a las 07:05 LT (04:05 hora Madrid).";
+            madTimeHint = "04:05";
+          }
+          if (d === 28) {
+            notes = "Regresas desde Roma y aterrizas en Abu Dabi a las 07:05 LT (04:05 hora Madrid).";
+            madTimeHint = "04:05";
+          }
           days[key] = {
             status: "away",
+            icao: "OMAA",
             tag: "Abu Dabi",
+            madTimeHint,
             headline: "Fuera de Madrid · Abu Dabi",
             notes,
           };
         } else if (d === 22 || d === 23 || d === 26 || d === 27) {
-          let notes = "Estancia en Roma.";
-          if (d === 22) notes = "Vuelo de Abu Dabi (14:15 hora local) a Roma (llegada 17:40 hora local). Noche en Roma.";
-          if (d === 23) notes = "Día en Roma; sales hacia Abu Dabi a las 22:00 (hora local de Roma).";
-          if (d === 26) notes = "Vuelo de Abu Dabi (14:15 hora local) a Roma (llegada 17:40 hora local). Noche en Roma.";
-          if (d === 27) notes = "Día en Roma; sales hacia Abu Dabi a las 22:00 (hora local de Roma).";
+          let notes = "Estancia en Roma (misma hora que Madrid).";
+          let madTimeHint = "";
+          if (d === 22) {
+            notes = "Vuelo de Abu Dabi (14:15 LT / 11:15 Madrid) a Roma (llegada 17:40 hora Madrid). Noche en Roma.";
+            madTimeHint = "11:15";
+          }
+          if (d === 23) {
+            notes = "Día en Roma; sales hacia Abu Dabi a las 22:00 hora Madrid.";
+            madTimeHint = "22:00";
+          }
+          if (d === 26) {
+            notes = "Vuelo de Abu Dabi (14:15 LT / 11:15 Madrid) a Roma (llegada 17:40 hora Madrid). Noche en Roma.";
+            madTimeHint = "11:15";
+          }
+          if (d === 27) {
+            notes = "Día en Roma; sales hacia Abu Dabi a las 22:00 hora Madrid.";
+            madTimeHint = "22:00";
+          }
           days[key] = {
             status: "away",
+            icao: "LIRF",
             tag: "Roma",
+            madTimeHint,
             headline: "Fuera de Madrid · Roma",
             notes,
           };
         } else if (d === 29) {
           days[key] = {
             status: "transit",
+            icao: "LEMD",
             tag: "Vuelve 19:05",
+            madTimeHint: "19:05",
             headline: "Vuelves a Madrid a las 19:05 (fin a las 19:30)",
-            notes: "Sales de Abu Dabi a las 14:05 (hora local de allí) y aterrizas en Madrid a las 19:05 hora local.",
+            notes: "Sales de Abu Dabi a las 14:05 LT (11:05 hora Madrid) y aterrizas en Madrid a las 19:05 hora Madrid.",
           };
         } else {
           days[key] = {
             status: "home",
+            icao: "LEMD",
             tag: "Libre",
             headline: "En casa libre",
             notes: "Día libre en Madrid para cerrar el año.",
@@ -585,10 +627,16 @@
             ? "Imaginaria"
             : "Fuera";
 
+        const cellIcao = resolveIcaoFromItem(item);
+        const cellTz = AIRPORT_TZ[cellIcao] || "Europe/Madrid";
+        const refDate = getReferenceDateForDay(dk);
+        const diffShort = cellTz === "Europe/Madrid" ? "MAD" : formatDiffFromMadrid(cellTz, refDate).replace(" vs MAD", "");
+        const madCellHint = item.madTimeHint ? `MAD ${item.madTimeHint}` : diffShort;
+
         btn.innerHTML = `
           <div class="flex items-center justify-between leading-none">
             <span class="text-[11px] sm:text-xs font-bold">${d}</span>
-            <span class="w-1.5 h-1.5 rounded-full ${dotMap[item.status] || dotMap.home}"></span>
+            <span class="text-[8px] sm:text-[9px] font-semibold opacity-75 tabular-nums">${madCellHint}</span>
           </div>
           <span class="text-[9px] sm:text-[11px] font-bold leading-[1.1] line-clamp-1 mt-0.5">${item.tag || fallbackTag}</span>
         `;
@@ -637,6 +685,7 @@
       });
       document.getElementById("detailHeadline").textContent = item.headline;
       document.getElementById("detailNotes").textContent = item.notes || "";
+      updateMadridClocks();
     }
 
     function changeMonth(delta) {
@@ -1232,6 +1281,7 @@
               const isFirstDayOfStay = d === sDay && !isContinuationOfSameStay;
               setDayIfHigherPriority(d, 30, {
                 status: "away",
+                icao: e.origCode || CITY_TO_ICAO[hotelCity.toLowerCase()] || "LEMD",
                 tag: hotelCity,
                 headline: isFirstDayOfStay
                   ? `${hInfo.name} · ${hotelCity}`
@@ -1255,21 +1305,34 @@
           const flightLabel = formatFlightDisplayName(flightCode);
           const routeIcao = `${origIcao} → ${destIcao}`;
 
+          const origTz = AIRPORT_TZ[e.origCode] || "Europe/Madrid";
+          const destTz = AIRPORT_TZ[e.destCode] || "Europe/Madrid";
+          const startDateKey = `${mKey}-${String(e.startDay).padStart(2, "0")}`;
+          const endDateKey = `${mKey}-${String(e.endDay).padStart(2, "0")}`;
+          const startMad = convertLocalToMadridTime(startDateKey, e.startTime, origTz);
+          const endMad = convertLocalToMadridTime(endDateKey, e.endTime, destTz);
+          const startMadNote = origTz === "Europe/Madrid" ? `${e.startTime} MAD` : `${e.startTime} LT (${startMad} MAD)`;
+          const endMadNote = destTz === "Europe/Madrid" ? `${e.endTime} MAD` : `${e.endTime} LT (${endMad} MAD)`;
+
           if (startInMonth) {
             if (e.origCode === "LEMD") {
               setDayIfHigherPriority(e.startDay, 60, {
                 status: "transit",
+                icao: e.destCode || "LEMD",
                 tag: `Sale ${e.startTime}`,
-                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${e.endTime} LT`,
-                notes: `${origCity} (${origIcao}) a ${destCity} (${destIcao}) · Sale ${e.startTime} LT · Llega ${e.endTime} LT${e.checkinTime ? ` · Firma ${e.checkinTime} LT` : ""}.`,
+                madTimeHint: startMad,
+                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${endMadNote}`,
+                notes: `${origCity} (${origIcao}) a ${destCity} (${destIcao}) · Sale ${startMadNote} · Llega ${endMadNote}${e.checkinTime ? ` · Firma ${e.checkinTime} MAD` : ""}.`,
               });
             } else {
               const cellTag = destCity && destCity !== origCity ? `${origCity} → ${destCity}` : origCity;
               setDayIfHigherPriority(e.startDay, 40, {
                 status: "away",
+                icao: e.origCode || e.destCode || "LEMD",
                 tag: cellTag,
-                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${e.endTime} LT`,
-                notes: `${origCity} (${origIcao}) a ${destCity} (${destIcao}) · Sale ${e.startTime} LT · Llega ${e.endTime} LT${e.checkinTime ? ` · Firma ${e.checkinTime} LT` : ""}.`,
+                madTimeHint: startMad,
+                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Sale ${startMadNote}`,
+                notes: `${origCity} (${origIcao}) a ${destCity} (${destIcao}) · Sale ${startMadNote} · Llega ${endMadNote}${e.checkinTime ? ` · Firma ${e.checkinTime} LT` : ""}.`,
               });
             }
           }
@@ -1278,16 +1341,20 @@
             if (e.destCode === "LEMD") {
               setDayIfHigherPriority(e.endDay, 65, {
                 status: "transit",
+                icao: "LEMD",
                 tag: `Llega ${e.endTime}`,
-                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${e.endTime} LT`,
-                notes: `Llegada a ${destCity} (${destIcao}) a las ${e.endTime} LT desde ${origCity} (${origIcao}) · Sale ${e.startTime} LT.`,
+                madTimeHint: endMad,
+                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${endMadNote}`,
+                notes: `Llegada a ${destCity} (${destIcao}) a las ${endMadNote} desde ${origCity} (${origIcao}) · Sale ${startMadNote}.`,
               });
             } else if (e.endDay !== e.startDay || !startInMonth) {
               setDayIfHigherPriority(e.endDay, 35, {
                 status: "away",
+                icao: e.destCode || "LEMD",
                 tag: destCity,
-                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${e.endTime} LT`,
-                notes: `Llegada a ${destCity} (${destIcao}) a las ${e.endTime} LT desde ${origCity} (${origIcao}) · Sale ${e.startTime} LT.`,
+                madTimeHint: endMad,
+                headline: `${flightLabel ? `Vuelo ${flightLabel} · ` : ""}${origIcao} → ${destIcao} · Llega ${endMadNote}`,
+                notes: `Llegada a ${destCity} (${destIcao}) a las ${endMadNote} desde ${origCity} (${origIcao}) · Sale ${startMadNote}.`,
               });
             }
           }
@@ -1459,6 +1526,151 @@
     window.addEventListener("online", updateOfflineBadge);
     window.addEventListener("offline", updateOfflineBadge);
 
+
+    const AIRPORT_TZ = {
+      LEMD: "Europe/Madrid",
+      SKBO: "America/Bogota",
+      SBGR: "America/Sao_Paulo",
+      OMAA: "Asia/Dubai",
+      LIRF: "Europe/Rome",
+      MMMX: "America/Mexico_City",
+      SCEL: "America/Santiago",
+      FMEE: "Indian/Reunion",
+      KJFK: "America/New_York",
+      KMIA: "America/New_York",
+      MPTO: "America/Panama",
+      SEQM: "America/Guayaquil",
+      SPJC: "America/Lima",
+      MDSD: "America/Santo_Domingo",
+      MMUN: "America/Cancun",
+    };
+
+    const CITY_TO_ICAO = {
+      "madrid": "LEMD",
+      "bogota": "SKBO",
+      "bogotá": "SKBO",
+      "sao paulo": "SBGR",
+      "são paulo": "SBGR",
+      "abu dabi": "OMAA",
+      "abu dhabi": "OMAA",
+      "roma": "LIRF",
+      "rome": "LIRF",
+      "mexico": "MMMX",
+      "méxico": "MMMX",
+      "chile": "SCEL",
+      "santiago": "SCEL",
+      "reunion": "FMEE",
+      "reunión": "FMEE",
+      "nueva york": "KJFK",
+      "miami": "KMIA",
+      "panama": "MPTO",
+      "panamá": "MPTO",
+      "quito": "SEQM",
+      "lima": "SPJC",
+      "santo domingo": "MDSD",
+      "cancun": "MMUN",
+      "cancún": "MMUN",
+    };
+
+    function getTimezoneOffsetMinutes(timeZone, dateObj) {
+      const dtf = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+      const parts = {};
+      for (const p of dtf.formatToParts(dateObj)) {
+        if (p.type !== "literal") parts[p.type] = Number(p.value);
+      }
+      const hour = parts.hour === 24 ? 0 : parts.hour;
+      const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, hour, parts.minute, parts.second || 0);
+      return Math.round((asUtc - dateObj.getTime()) / 60000);
+    }
+
+    function formatTimeInZone(timeZone, dateObj = new Date()) {
+      return new Intl.DateTimeFormat("es-ES", {
+        timeZone,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(dateObj);
+    }
+
+    function formatDiffFromMadrid(destTz, dateObj = new Date()) {
+      if (!destTz || destTz === "Europe/Madrid") return "Misma hora";
+      const madMin = getTimezoneOffsetMinutes("Europe/Madrid", dateObj);
+      const dstMin = getTimezoneOffsetMinutes(destTz, dateObj);
+      const diffHours = (dstMin - madMin) / 60;
+      if (diffHours === 0) return "Misma hora";
+      const sign = diffHours > 0 ? "+" : "";
+      const formatted = Number.isInteger(diffHours) ? `${sign}${diffHours}h` : `${sign}${diffHours.toFixed(1)}h`;
+      return `${formatted} vs MAD`;
+    }
+
+    // Convierte hora local (HH:MM) en una fecha YYYY-MM-DD y zona origen a hora de Madrid (HH:MM)
+    function convertLocalToMadridTime(dateKey, hhmm, sourceTz) {
+      if (!sourceTz || sourceTz === "Europe/Madrid") return hhmm;
+      const m = String(hhmm || "").match(/^(\d{1,2}):(\d{2})$/);
+      const dMatch = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m || !dMatch) return hhmm;
+      const y = Number(dMatch[1]), mo = Number(dMatch[2]), d = Number(dMatch[3]);
+      const h = Number(m[1]), mi = Number(m[2]);
+      const roughUtc = new Date(Date.UTC(y, mo - 1, d, h, mi, 0));
+      const srcOffset = getTimezoneOffsetMinutes(sourceTz, roughUtc);
+      const actualUtc = new Date(Date.UTC(y, mo - 1, d, h, mi, 0) - srcOffset * 60000);
+      return formatTimeInZone("Europe/Madrid", actualUtc);
+    }
+
+    function resolveIcaoFromItem(item) {
+      if (!item) return "LEMD";
+      if (item.icao && AIRPORT_TZ[item.icao]) return item.icao;
+      if (item.status === "home") return "LEMD";
+      const hay = `${item.tag || ""} ${item.headline || ""} ${item.notes || ""}`.toLowerCase();
+      for (const [city, code] of Object.entries(CITY_TO_ICAO)) {
+        if (hay.includes(city)) return code;
+      }
+      return "LEMD";
+    }
+
+    function getReferenceDateForDay(dateKey) {
+      const m = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return new Date();
+      return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0));
+    }
+
+    function updateMadridClocks() {
+      const now = new Date();
+      const madNow = formatTimeInZone("Europe/Madrid", now);
+      const headerClock = document.getElementById("headerMadridClock");
+      if (headerClock) {
+        headerClock.textContent = `🕐 MAD ${madNow}`;
+      }
+
+      const monthKey = getMonthKey(currentYear, currentMonthIndex);
+      const monthMap = ensureMonthMap(monthKey);
+      const item = monthMap[selectedDateKey];
+      const bar = document.getElementById("detailMadridBar");
+      if (!bar || !item) return;
+
+      const icao = resolveIcaoFromItem(item);
+      const destTz = AIRPORT_TZ[icao] || "Europe/Madrid";
+      const cityLabel = AIRPORT_NAMES[icao] || (icao === "LEMD" ? "Madrid" : item.tag || "Destino");
+      const refDate = getReferenceDateForDay(selectedDateKey);
+      const diffLabel = formatDiffFromMadrid(destTz, refDate);
+
+      if (destTz === "Europe/Madrid") {
+        bar.textContent = `🕐 Hora en Madrid ahora: ${madNow} (misma zona horaria)`;
+      } else {
+        const destNow = formatTimeInZone(destTz, now);
+        bar.textContent = `🕐 En Madrid ahora: ${madNow} · En ${cityLabel}: ${destNow} (${diffLabel})`;
+      }
+    }
+
     function loadSavedFirebaseInputs() {
       let saved = {};
       try {
@@ -1555,6 +1767,8 @@
     initFirebaseFromConfig();
     syncWorkspaceLayout();
     renderAll();
+    updateMadridClocks();
+    setInterval(updateMadridClocks, 30000);
   </script>
 </body>
 </html>
