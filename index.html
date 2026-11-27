@@ -21,7 +21,7 @@
   </script>
   <style>
     .day-cell {
-      min-height: 78px;
+      min-height: 82px;
       transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
     .day-cell:active {
@@ -39,7 +39,7 @@
           <span id="syncBadge">Modo local · Listo para Firebase</span>
         </div>
         <h1 class="text-xl sm:text-2xl font-bold text-slate-900">¿Cuándo está en casa?</h1>
-        <p class="text-sm text-slate-500">Horarios en hora local de Madrid · Sin códigos técnicos</p>
+        <p class="text-sm text-slate-500">Horarios en hora local de Madrid · Destinos claros</p>
       </div>
 
       <button
@@ -51,7 +51,7 @@
       </button>
     </header>
 
-    <!-- Selector de mes y leyenda -->
+    <!-- Selector de mes y leyenda (PARCHE 1: 4 colores) -->
     <section class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-4">
       <div class="flex items-center justify-between gap-2 mb-4">
         <button
@@ -76,19 +76,23 @@
         </button>
       </div>
 
-      <!-- Leyenda: Verde = En casa libre, Amarillo = Reservas, Rojo = Fuera -->
-      <div class="grid grid-cols-3 gap-2 text-xs font-medium">
-        <div class="flex items-center gap-2 bg-emerald-50 text-emerald-900 border border-emerald-200/70 rounded-xl px-2.5 py-2">
+      <!-- Leyenda: Verde = En casa libre, Naranja = Llegadas/Salidas, Azul = Imaginarias, Rojo = Fuera (Destino) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-medium">
+        <div class="flex items-center gap-2 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-xl px-2.5 py-2">
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
           <span>En casa libre</span>
         </div>
-        <div class="flex items-center gap-2 bg-amber-50 text-amber-900 border border-amber-200/70 rounded-xl px-2.5 py-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
-          <span>Reservas</span>
+        <div class="flex items-center gap-2 bg-orange-50 text-orange-900 border border-orange-200/80 rounded-xl px-2.5 py-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0"></span>
+          <span>Llegada / Salida</span>
         </div>
-        <div class="flex items-center gap-2 bg-rose-50 text-rose-900 border border-rose-200/70 rounded-xl px-2.5 py-2">
+        <div class="flex items-center gap-2 bg-sky-50 text-sky-900 border border-sky-200/80 rounded-xl px-2.5 py-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-sky-500 shrink-0"></span>
+          <span>Imaginaria</span>
+        </div>
+        <div class="flex items-center gap-2 bg-rose-50 text-rose-900 border border-rose-200/80 rounded-xl px-2.5 py-2">
           <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
-          <span>Fuera</span>
+          <span>Fuera (Destino)</span>
         </div>
       </div>
     </section>
@@ -145,7 +149,7 @@
       <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
         <label class="block text-sm font-semibold text-slate-800 mb-1">1. Importar PDF de programación (JetSched)</label>
         <p class="text-xs text-slate-500 mb-3">
-          Detecta libres/vacaciones (verde), reservas (amarillo) y vuelos/estancias fuera (rojo).
+          Detecta libres/vacaciones (verde), llegadas/salidas MAD (naranja), imaginarias (azul) y estancias fuera con su ciudad (rojo).
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <input
@@ -207,7 +211,7 @@
       </div>
     </section>
 
-    <!-- Modal para editar un día -->
+    <!-- Modal para editar un día (PARCHE 3: acceso rápido a libre + selector de 4 estados) -->
     <div id="editDayModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
         <div class="flex items-center justify-between">
@@ -215,18 +219,27 @@
           <button onclick="closeDayEditor()" class="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
         </div>
 
+        <button
+          type="button"
+          onclick="quickSetDayFree()"
+          class="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer"
+        >
+          🟢 Marcar este día como En casa libre
+        </button>
+
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Color / Estado</label>
           <select id="editStatusSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
             <option value="home">🟢 En casa libre</option>
-            <option value="reserve">🟡 Reservas</option>
-            <option value="away">🔴 Fuera</option>
+            <option value="transit">🟠 Llegada / Salida Madrid</option>
+            <option value="reserve">🔵 Imaginaria / Reserva</option>
+            <option value="away">🔴 Fuera (con destino)</option>
           </select>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Etiqueta corta en el calendario (opcional)</label>
-          <input id="editTagInput" type="text" placeholder="Ej: Llega 11:30 · Sale 21:10" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Destino o etiqueta visible en el cuadro</label>
+          <input id="editTagInput" type="text" placeholder="Ej: Abu Dabi · Roma · Chile · Llega 11:30" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
         </div>
 
         <div>
@@ -257,18 +270,26 @@
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
     }
 
+    // PARCHE 2: Diccionario de destinos legibles para que se vean directo en el calendario
     const AIRPORT_NAMES = {
       LEMD: "Madrid",
       SKBO: "Bogotá",
       SBGR: "São Paulo",
       OMAA: "Abu Dabi",
       LIRF: "Roma",
-      MMMX: "Ciudad de México",
-      SCEL: "Santiago de Chile",
+      MMMX: "México",
+      SCEL: "Chile",
       FMEE: "Reunión",
+      KJFK: "Nueva York",
+      KMIA: "Miami",
+      MPTO: "Panamá",
+      SEQM: "Quito",
+      SPJC: "Lima",
+      MDSD: "Santo Domingo",
+      MMUN: "Cancún",
     };
 
-    // Diciembre 2026: verde = en casa libre, amarillo = reservas (0 este mes), rojo = fuera
+    // Diciembre 2026 con destinos visibles y llegadas/salidas en naranja
     function buildDecember2026() {
       const days = {};
       for (let d = 1; d <= 31; d++) {
@@ -276,30 +297,30 @@
         if (d === 1) {
           days[key] = {
             status: "away",
-            tag: "Fuera",
-            headline: "Fuera · Regreso desde Bogotá vía São Paulo",
-            notes: "Salida desde Bogotá a las 23:55 (hora local de allí) y enlace por São Paulo.",
+            tag: "Bogotá",
+            headline: "Fuera · Bogotá (vuelo nocturno a São Paulo)",
+            notes: "En Bogotá; despegas a las 23:55 (hora local de Bogotá) hacia São Paulo.",
           };
         } else if (d === 2) {
           days[key] = {
             status: "away",
-            tag: "Vuelo MAD",
-            headline: "Fuera · En vuelo de regreso a Madrid",
-            notes: "Despegue desde São Paulo a las 19:55 (hora local de Brasil; 23:55 en Madrid). Llegas mañana día 3.",
+            tag: "São Paulo",
+            headline: "Fuera · São Paulo (regreso a Madrid)",
+            notes: "Escala en São Paulo y despegue hacia Madrid a las 19:55 (hora local de Brasil; 23:55 en Madrid).",
           };
         } else if (d === 3) {
           days[key] = {
-            status: "away",
+            status: "transit",
             tag: "Llega 11:30",
             headline: "Llegas a Madrid a las 11:30 (fin a las 11:40)",
-            notes: "Aterrizaje en Madrid a las 11:30 hora local. Por la tarde ya estás en casa.",
+            notes: "Aterrizaje en Madrid a las 11:30 hora local. Desde mediodía ya estás en casa.",
           };
         } else if (d === 4 || d === 5) {
           days[key] = {
             status: "home",
             tag: "Libre",
             headline: "En casa libre",
-            notes: "Día libre en Madrid, sin turnos ni reservas.",
+            notes: "Día libre en Madrid, sin turnos ni imaginarias.",
           };
         } else if (d >= 6 && d <= 19) {
           days[key] = {
@@ -310,28 +331,37 @@
           };
         } else if (d === 20) {
           days[key] = {
-            status: "away",
+            status: "transit",
             tag: "Sale 21:10",
             headline: "Sales de Madrid a las 21:10 hacia Abu Dabi",
             notes: "Firma en Madrid a las 19:40 y despegue a las 21:10 (hora local de Madrid).",
           };
-        } else if (d >= 21 && d <= 28) {
-          let extra = "Estancia fuera de Madrid (rotación Abu Dabi / Roma).";
-          if (d === 22) extra = "Vuelo de Abu Dabi (14:15 hora local) a Roma (llegada 17:40 hora local). Noche en Roma.";
-          if (d === 23) extra = "En Roma; sales hacia Abu Dabi a las 22:00 (hora local de Roma).";
-          if (d === 24) extra = "Llegada a Abu Dabi a las 07:05 (hora local) y descanso allí.";
-          if (d === 26) extra = "Vuelo de Abu Dabi (14:15 hora local) a Roma (llegada 17:40 hora local). Noche en Roma.";
-          if (d === 27) extra = "En Roma; sales hacia Abu Dabi a las 22:00 (hora local de Roma).";
-          if (d === 28) extra = "Llegada a Abu Dabi a las 07:05 (hora local) y descanso allí.";
+        } else if (d === 21 || d === 24 || d === 25 || d === 28) {
+          let notes = "Estancia en Abu Dabi.";
+          if (d === 21) notes = "Aterrizas en Abu Dabi a las 07:20 (hora local de allí) y descanso en hotel.";
+          if (d === 24) notes = "Regresas desde Roma y aterrizas en Abu Dabi a las 07:05 (hora local).";
+          if (d === 28) notes = "Regresas desde Roma y aterrizas en Abu Dabi a las 07:05 (hora local).";
           days[key] = {
             status: "away",
-            tag: "Fuera",
-            headline: "Fuera de Madrid · Abu Dabi / Roma",
-            notes: extra,
+            tag: "Abu Dabi",
+            headline: "Fuera de Madrid · Abu Dabi",
+            notes,
+          };
+        } else if (d === 22 || d === 23 || d === 26 || d === 27) {
+          let notes = "Estancia en Roma.";
+          if (d === 22) notes = "Vuelo de Abu Dabi (14:15 hora local) a Roma (llegada 17:40 hora local). Noche en Roma.";
+          if (d === 23) notes = "Día en Roma; sales hacia Abu Dabi a las 22:00 (hora local de Roma).";
+          if (d === 26) notes = "Vuelo de Abu Dabi (14:15 hora local) a Roma (llegada 17:40 hora local). Noche en Roma.";
+          if (d === 27) notes = "Día en Roma; sales hacia Abu Dabi a las 22:00 (hora local de Roma).";
+          days[key] = {
+            status: "away",
+            tag: "Roma",
+            headline: "Fuera de Madrid · Roma",
+            notes,
           };
         } else if (d === 29) {
           days[key] = {
-            status: "away",
+            status: "transit",
             tag: "Vuelve 19:05",
             headline: "Vuelves a Madrid a las 19:05 (fin a las 19:30)",
             notes: "Sales de Abu Dabi a las 14:05 (hora local de allí) y aterrizas en Madrid a las 19:05 hora local.",
@@ -348,7 +378,7 @@
       return { "2026-12": days };
     }
 
-    const STORAGE_KEY = "turnos_familia_roster_v2";
+    const STORAGE_KEY = "turnos_familia_roster_v3";
     const FB_CFG_KEY = "turnos_familia_fb_cfg_v1";
 
     let rosterData = loadInitialRoster();
@@ -407,10 +437,11 @@
 
       const values = Object.values(monthMap);
       const homeCount = values.filter((x) => x.status === "home").length;
+      const transitCount = values.filter((x) => x.status === "transit").length;
       const reserveCount = values.filter((x) => x.status === "reserve").length;
       const awayCount = values.filter((x) => x.status === "away").length;
       document.getElementById("monthStats").textContent =
-        `${homeCount} días en casa libre · ${reserveCount} reservas · ${awayCount} fuera`;
+        `${homeCount} libre · ${transitCount} llegada/salida · ${reserveCount} imaginaria · ${awayCount} fuera`;
 
       const firstDayMondayIdx = (dateObj.getDay() + 6) % 7;
       const daysInMonth = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
@@ -424,21 +455,24 @@
         grid.appendChild(empty);
       }
 
+      // PARCHE 1: Estilos de 4 colores (verde libre, naranja llegada/salida, azul imaginaria, rojo fuera)
+      const styleMap = {
+        home: "bg-emerald-50/95 border-emerald-200 text-emerald-950 hover:bg-emerald-100/80",
+        transit: "bg-orange-50/95 border-orange-300 text-orange-950 hover:bg-orange-100/80",
+        reserve: "bg-sky-50/95 border-sky-300 text-sky-950 hover:bg-sky-100/80",
+        away: "bg-rose-50/95 border-rose-200 text-rose-950 hover:bg-rose-100/80",
+      };
+      const dotMap = {
+        home: "bg-emerald-500",
+        transit: "bg-orange-500",
+        reserve: "bg-sky-500",
+        away: "bg-rose-500",
+      };
+
       for (let d = 1; d <= daysInMonth; d++) {
         const dk = `${monthKey}-${String(d).padStart(2, "0")}`;
         const item = monthMap[dk] || { status: "home", tag: "Libre", headline: "En casa libre", notes: "" };
         const isSelected = dk === selectedDateKey;
-
-        const styleMap = {
-          home: "bg-emerald-50/90 border-emerald-200 text-emerald-950 hover:bg-emerald-100/80",
-          reserve: "bg-amber-50/90 border-amber-200 text-amber-950 hover:bg-amber-100/80",
-          away: "bg-rose-50/90 border-rose-200 text-rose-950 hover:bg-rose-100/80",
-        };
-        const dotMap = {
-          home: "bg-emerald-500",
-          reserve: "bg-amber-500",
-          away: "bg-rose-500",
-        };
 
         const btn = document.createElement("button");
         btn.type = "button";
@@ -448,17 +482,23 @@
         };
         btn.className = `day-cell rounded-xl border p-1.5 sm:p-2 text-left flex flex-col justify-between cursor-pointer ${
           styleMap[item.status] || styleMap.home
-        } ${isSelected ? "ring-2 ring-sky-600 shadow-sm" : ""}`;
+        } ${isSelected ? "ring-2 ring-slate-900 shadow-sm" : ""}`;
 
         const fallbackTag =
-          item.status === "home" ? "Libre" : item.status === "reserve" ? "Reserva" : "Fuera";
+          item.status === "home"
+            ? "Libre"
+            : item.status === "transit"
+            ? "MAD"
+            : item.status === "reserve"
+            ? "Imaginaria"
+            : "Fuera";
 
         btn.innerHTML = `
           <div class="flex items-center justify-between">
             <span class="text-xs sm:text-sm font-bold">${d}</span>
             <span class="w-2 h-2 rounded-full ${dotMap[item.status] || dotMap.home}"></span>
           </div>
-          <span class="text-[10px] sm:text-[11px] font-semibold leading-tight line-clamp-2 opacity-90">${item.tag || fallbackTag}</span>
+          <span class="text-[10px] sm:text-[11px] font-bold leading-tight line-clamp-2">${item.tag || fallbackTag}</span>
         `;
         grid.appendChild(btn);
       }
@@ -484,12 +524,15 @@
       if (item.status === "home") {
         badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-emerald-100 text-emerald-800";
         badge.textContent = "🟢 En casa libre";
+      } else if (item.status === "transit") {
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-orange-100 text-orange-800";
+        badge.textContent = "🟠 Llegada / Salida Madrid";
       } else if (item.status === "reserve") {
-        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-amber-100 text-amber-800";
-        badge.textContent = "🟡 Reservas";
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-sky-100 text-sky-800";
+        badge.textContent = "🔵 Imaginaria";
       } else {
         badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-rose-100 text-rose-800";
-        badge.textContent = "🔴 Fuera";
+        badge.textContent = `🔴 Fuera · ${item.tag || "Destino"}`;
       }
 
       document.getElementById("detailDateTitle").textContent = dt.toLocaleDateString("es-ES", {
@@ -546,6 +589,14 @@
       document.getElementById("editDayModal").classList.add("hidden");
     }
 
+    function quickSetDayFree() {
+      document.getElementById("editStatusSelect").value = "home";
+      document.getElementById("editTagInput").value = "Libre";
+      document.getElementById("editHeadlineInput").value = "En casa libre";
+      document.getElementById("editNotesInput").value = "Día libre en Madrid.";
+      saveDayEdit();
+    }
+
     function saveDayEdit() {
       const monthKey = getMonthKey(currentYear, currentMonthIndex);
       const monthMap = ensureMonthMap(monthKey);
@@ -568,7 +619,24 @@
       selectedDateKey = "2026-12-03";
       persistLocalRoster();
       renderAll();
-      document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026.";
+      document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026 con destinos y colores.";
+    }
+
+    // PARCHE 2: Parser PDF con detección visual de destino (Chile, Bogotá, Roma, Abu Dabi, etc.) y 4 estados
+    function detectCityFromText(text) {
+      const normalized = text.replace(/\s+/g, " ");
+      const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/);
+      if (iataMatch && AIRPORT_NAMES[iataMatch[1]]) {
+        return AIRPORT_NAMES[iataMatch[1]];
+      }
+      if (/BOGOTA/i.test(normalized)) return "Bogotá";
+      if (/SAO PAULO|GUARULHOS/i.test(normalized)) return "São Paulo";
+      if (/ABU DHABI|ABU DABI/i.test(normalized)) return "Abu Dabi";
+      if (/ROMA|ROME/i.test(normalized)) return "Roma";
+      if (/SANTIAGO|CHILE/i.test(normalized)) return "Chile";
+      if (/MEXICO/i.test(normalized)) return "México";
+      if (/REUNION/i.test(normalized)) return "Reunión";
+      return null;
     }
 
     async function handlePdfUpload(event) {
@@ -611,14 +679,14 @@
           const monNum = Number(match[2]);
           if (monNum !== mIdx + 1 || dayNum < 1 || dayNum > daysInMonth) continue;
           const dk = `${mKey}-${String(dayNum).padStart(2, "0")}`;
-          const snippet = fullText.slice(Math.max(0, match.index - 40), match.index + 160);
+          const snippet = fullText.slice(Math.max(0, match.index - 40), match.index + 220);
 
           if (/VACACIONES/i.test(snippet)) {
             newMonth[dk] = {
               status: "home",
               tag: "Vacaciones",
               headline: "En casa · Vacaciones",
-              notes: "Periodo de vacaciones.",
+              notes: "Periodo de vacaciones en Madrid.",
             };
           } else if (/DAY OFF/i.test(snippet)) {
             newMonth[dk] = {
@@ -630,28 +698,43 @@
           } else if (/\b(RESERVA|SBY|STANDBY|IMAGINARIA)\b/i.test(snippet)) {
             newMonth[dk] = {
               status: "reserve",
-              tag: "Reserva",
-              headline: "Día de reserva",
-              notes: "Reserva asignada en programación.",
+              tag: "Imaginaria",
+              headline: "Imaginaria / Reserva en Madrid",
+              notes: "Día de imaginaria programada.",
             };
           } else if (/LEMD/i.test(snippet) && !/HOTEL/i.test(snippet)) {
             const arrMatch = snippet.match(/(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2})\s+LEMD/);
-            newMonth[dk] = {
-              status: "away",
-              tag: arrMatch ? `MAD ${arrMatch[2]}` : "Vuelo MAD",
-              headline: arrMatch
-                ? `Movimiento con Madrid (${arrMatch[2]} hora local)`
-                : "Movimiento con Madrid",
-              notes: "Revisa si es salida o llegada a Madrid.",
-            };
+            const depMatch = snippet.match(/(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2})\s+LEMD\s+\d{2}\/\d{2}\/\d{2}/);
+            const city = detectCityFromText(snippet);
+            if (depMatch) {
+              newMonth[dk] = {
+                status: "transit",
+                tag: `Sale ${depMatch[2]}`,
+                headline: `Sales de Madrid a las ${depMatch[2]}${city ? ` hacia ${city}` : ""}`,
+                notes: "Salida desde Madrid (hora local de Madrid).",
+              };
+            } else if (arrMatch) {
+              newMonth[dk] = {
+                status: "transit",
+                tag: `Llega ${arrMatch[2]}`,
+                headline: `Llegas a Madrid a las ${arrMatch[2]}${city ? ` desde ${city}` : ""}`,
+                notes: "Aterrizaje en Madrid (hora local de Madrid).",
+              };
+            } else {
+              newMonth[dk] = {
+                status: "transit",
+                tag: "Vuelo MAD",
+                headline: `Llegada o salida en Madrid${city ? ` (${city})` : ""}`,
+                notes: "Revisa la hora exacta en el detalle del vuelo.",
+              };
+            }
           } else if (/HOTEL/i.test(snippet)) {
-            const codeMatch = snippet.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE)\b/);
-            const city = codeMatch ? AIRPORT_NAMES[codeMatch[1]] || codeMatch[1] : "fuera";
+            const city = detectCityFromText(snippet) || "Fuera";
             newMonth[dk] = {
               status: "away",
-              tag: "Fuera",
-              headline: `Fuera de Madrid (${city})`,
-              notes: `Estancia / vuelo fuera de Madrid (${city}).`,
+              tag: city,
+              headline: `Fuera de Madrid · ${city}`,
+              notes: `Estancia en ${city}.`,
             };
           }
         }
@@ -662,7 +745,7 @@
         selectedDateKey = `${mKey}-01`;
         persistLocalRoster();
         renderAll();
-        statusEl.textContent = `Importado ${mKey} (${pdf.numPages} págs.). Revisa los días y sincroniza con Firebase.`;
+        statusEl.textContent = `Importado ${mKey} (${pdf.numPages} págs.) con destinos visibles. Sincroniza con Firebase cuando quieras.`;
       } catch (err) {
         statusEl.textContent = "Error leyendo el PDF: " + err.message;
       }
