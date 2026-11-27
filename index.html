@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calendario · Turnos en Familia</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    .day-cell {
+      min-height: 46px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    @media (min-width: 640px) {
+      .day-cell {
+        min-height: 62px;
+      }
+    }
+    .day-cell:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen antialiased">
+  <div id="app" class="max-w-3xl lg:max-w-6xl mx-auto px-2.5 sm:px-6 py-2 pb-10">
+    <span id="syncBadge" class="sr-only">Modo local · Listo para Firebase</span>
+    <!-- Cabecera compacta: título a la izquierda, desbloquear pequeñito arriba a la derecha -->
+    <header class="flex items-center justify-between gap-2 mb-2">
+      <h1 class="text-base sm:text-xl font-bold text-slate-900 leading-tight truncate">¿Cuándo está en casa?</h1>
+
+      <button
+        id="btnLockToggle"
+        onclick="handleLockClick()"
+        class="shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+      >
+        🔒 Desbloquear
+      </button>
+    </header>
+
+    <!-- Espacio de trabajo: en modo apaisado o ancho, calendario a la izquierda y edición a la derecha -->
+    <div id="workspaceGrid" class="grid grid-cols-1 gap-2">
+      <div id="leftColumn" class="min-w-0">
+    <!-- Selector de mes y leyenda compacta -->
+    <section class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-2 sm:p-3 mb-2">
+      <div class="flex items-center justify-between gap-2 mb-1.5">
+        <button
+          id="prevMonthBtn"
+          onclick="changeMonth(-1)"
+          class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 text-sm cursor-pointer"
+          aria-label="Mes anterior"
+        >
+          ‹
+        </button>
+        <div class="text-center leading-none">
+          <h2 id="monthTitle" class="text-sm sm:text-base font-bold text-slate-900 capitalize">Diciembre 2026</h2>
+          <p id="monthStats" class="text-[10px] sm:text-[11px] text-slate-500 mt-0.5"></p>
+        </div>
+        <button
+          id="nextMonthBtn"
+          onclick="changeMonth(1)"
+          class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 text-sm cursor-pointer"
+          aria-label="Mes siguiente"
+        >
+          ›
+        </button>
+      </div>
+
+      <div class="grid grid-cols-5 gap-1 text-[9px] sm:text-xs font-medium">
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-lg px-1 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+          <span class="truncate">Libre</span>
+        </div>
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-orange-50 text-orange-900 border border-orange-200/80 rounded-lg px-1 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
+          <span class="truncate">Sal/Lleg</span>
+        </div>
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-purple-50 text-purple-900 border border-purple-200/80 rounded-lg px-1 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-purple-500 shrink-0"></span>
+          <span class="truncate">Reservas</span>
+        </div>
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-sky-50 text-sky-900 border border-sky-200/80 rounded-lg px-1 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-sky-500 shrink-0"></span>
+          <span class="truncate">Imaginaria</span>
+        </div>
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-rose-50 text-rose-900 border border-rose-200/80 rounded-lg px-1 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>
+          <span class="truncate">Fuera</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Calendario mensual -->
+    <section class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-2 sm:p-3 mb-2">
+      <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-400 uppercase mb-1">
+        <div>Lun</div>
+        <div>Mar</div>
+        <div>Mié</div>
+        <div>Jue</div>
+        <div>Vie</div>
+        <div>Sáb</div>
+        <div>Dom</div>
+      </div>
+      <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+    </section>
+
+    <!-- Detalle del día seleccionado -->
+    <section id="dayDetailCard" class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-2.5 sm:p-3 mb-2">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-1.5 mb-1">
+            <span id="detailBadge" class="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
+            <h3 id="detailDateTitle" class="text-xs sm:text-sm font-bold text-slate-900 capitalize"></h3>
+          </div>
+          <p id="detailHeadline" class="text-xs sm:text-sm font-semibold text-slate-800"></p>
+          <p id="detailNotes" class="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-snug"></p>
+        </div>
+        <button
+          id="editDayBtn"
+          onclick="openDayEditor()"
+          class="hidden shrink-0 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+        >
+          ✏️ Editar
+        </button>
+      </div>
+    </section>
+      </div>
+
+      <div id="rightColumn" class="hidden min-w-0">
+    <!-- Panel de Administración -->
+    <section id="editPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-3.5 sm:p-4 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Panel de Control · Cargar y Sincronizar</h3>
+          <p class="text-xs text-slate-500">Importa el PDF mensual de JetSched o sincroniza con Firebase Realtime Database</p>
+        </div>
+        <button
+          onclick="lockApp()"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer"
+        >
+          Salir
+        </button>
+      </div>
+
+      <!-- Subir PDF JetSched -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80">
+        <label class="block text-sm font-semibold text-slate-800 mb-1">1. Importar PDF de programación (JetSched)</label>
+        <p class="text-xs text-slate-500 mb-3">
+          Detecta libres/vacaciones (verde), salidas/llegadas MAD (naranja), reservas (morado), imaginaria (azul) y estancias fuera con su ciudad (rojo).
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <input
+            id="pdfFileInput"
+            type="file"
+            accept="application/pdf"
+            onchange="handlePdfUpload(event)"
+            class="block text-xs text-slate-600 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer"
+          />
+          <button
+            onclick="loadSampleDecember2026()"
+            class="px-3 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+          >
+            Restaurar Dic 2026
+          </button>
+        </div>
+        <p id="parseStatus" class="text-xs font-medium text-purple-700 mt-2.5"></p>
+      </div>
+
+      <!-- Configuración Firebase Realtime Database -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <label class="block text-sm font-semibold text-slate-800">2. Conexión con Firebase Realtime Database</label>
+          <button
+            type="button"
+            onclick="toggleRulesHelp()"
+            class="text-xs font-semibold text-purple-700 hover:underline cursor-pointer"
+          >
+            Ver reglas sugeridas para Realtime DB
+          </button>
+        </div>
+        <div id="rulesHelpBox" class="hidden text-xs bg-white border border-purple-200 rounded-xl p-3 text-slate-700 space-y-1.5">
+          <p class="font-semibold text-slate-900">En Firebase Console → Realtime Database → Reglas:</p>
+          <pre class="bg-slate-900 text-emerald-300 p-2.5 rounded-lg overflow-x-auto text-[11px]">{
+  "rules": {
+    "turnosFamilia": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}</pre>
+          <p class="text-[11px] text-slate-500">Así tu mujer puede leer en tiempo real y tú puedes modificar/sincronizar sin bloqueo de contraseña.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <span class="block text-xs font-medium text-slate-600 mb-1">Database URL</span>
+            <input
+              id="fbUrlInput"
+              type="url"
+              placeholder="https://tu-proyecto-default-rtdb.firebaseio.com"
+              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+          <div>
+            <span class="block text-xs font-medium text-slate-600 mb-1">Ruta / Nodo en la BD</span>
+            <input
+              id="fbPathInput"
+              type="text"
+              value="turnosFamilia"
+              placeholder="turnosFamilia"
+              class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <button
+            onclick="saveFirebaseConfigAndSync()"
+            class="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer"
+          >
+            Guardar y subir mes a Firebase
+          </button>
+          <button
+            onclick="syncCurrentMonthToFirebase()"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
+          >
+            Sincronizar mes actual ahora
+          </button>
+          <button
+            onclick="pullFromFirebaseNow()"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+          >
+            Descargar cambios de Firebase
+          </button>
+        </div>
+        <p id="fbStatus" class="text-xs text-slate-600"></p>
+      </div>
+    </section>
+      </div>
+    </div>
+
+    <!-- Modal para editar un día -->
+    <div id="editDayModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h4 id="modalDayTitle" class="font-bold text-slate-900">Editar día</h4>
+          <button onclick="closeDayEditor()" class="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">✕</button>
+        </div>
+
+        <button
+          type="button"
+          onclick="quickSetDayFree()"
+          class="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 cursor-pointer"
+        >
+          🟢 Marcar este día como En casa libre
+        </button>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Color / Estado</label>
+          <select id="editStatusSelect" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white">
+            <option value="home">🟢 En casa libre</option>
+            <option value="transit">🟠 Salida / Llegada</option>
+            <option value="reserve">🟣 Reservas</option>
+            <option value="imaginaria">🔵 Imaginaria</option>
+            <option value="away">🔴 Fuera (con destino)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Destino o etiqueta visible en el cuadro</label>
+          <input id="editTagInput" type="text" placeholder="Ej: Abu Dabi · Roma · Chile · Llega 11:30" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Titular claro para ella</label>
+          <input id="editHeadlineInput" type="text" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Detalle de horas / ciudad / notas</label>
+          <textarea id="editNotesInput" rows="3" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button onclick="closeDayEditor()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 cursor-pointer">Cancelar</button>
+          <button onclick="saveDayEdit()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 cursor-pointer">Guardar día</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_PIN = "1234";
+    const DEFAULT_FIREBASE_URL = "";
+    const DEFAULT_FIREBASE_PATH = "turnosFamilia";
+
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+
+    const AIRPORT_NAMES = {
+      LEMD: "Madrid",
+      SKBO: "Bogotá",
+      SBGR: "São Paulo",
+      OMAA: "Abu Dabi",
+      LIRF: "Roma",
+      MMMX: "México",
+      SCEL: "Chile",
+      FMEE: "Reunión",
+      KJFK: "Nueva York",
+      KMIA: "Miami",
+      MPTO: "Panamá",
+      SEQM: "Quito",
+      SPJC: "Lima",
+      MDSD: "Santo Domingo",
+      MMUN: "Cancún",
+    };
+
+    function buildDecember2026() {
+      const days = {};
+      for (let d = 1; d <= 31; d++) {
+        const key = `2026-12-${String(d).padStart(2, "0")}`;
+        if (d === 1) {
+          days[key] = {
+            status: "away",
+            tag: "Bogotá",
+            headline: "Fuera · Bogotá (vuelo nocturno a São Paulo)",
+            notes: "En Bogotá; despegas a las 23:55 (hora local de Bogotá) hacia São Paulo.",
+          };
+        } else if (d === 2) {
+          days[key] = {
+            status: "away",
+            tag: "São Paulo",
+            headline: "Fuera · São Paulo (regreso a Madrid)",
+            notes: "Escala en São Paulo y despegue hacia Madrid a las 19:55 (hora local de Brasil; 23:55 en Madrid).",
+          };
+        } else if (d === 3) {
+          days[key] = {
+            status: "transit",
+            tag: "Llega 11:30",
+            headline: "Llegas a Madrid a las 11:30 (fin a las 11:40)",
+            notes: "Aterrizaje en Madrid a las 11:30 hora local. Desde mediodía ya estás en casa.",
+          };
+        } else if (d === 4 || d === 5) {
+          days[key] = {
+            status: "home",
+            tag: "Libre",
+            headline: "En casa libre",
+            notes: "Día libre en Madrid, sin turnos ni reservas.",
+          };
+        } else if (d >= 6 && d <= 19) {
+          days[key] = {
+            status: "home",
+            tag: "Vacaciones",
+            headline: "En casa · Vacaciones",
+            notes: "Vacaciones en Madrid (del 6 al 19 de diciembre).",
+          };
+        } else if (d === 20) {
+          days[key] = {
+            status: "transit",
+            tag: "Sale 21:10",
+            headline: "Sales de Madrid a las 21:10 hacia Abu Dabi",
+            notes: "Firma en Madrid a las 19:40 y despegue a las 21:10 (hora local de Madrid).",
+          };
+        } else if (d === 21 || d === 24 || d === 25 || d === 28) {
+          let notes = "Estancia en Abu Dabi.";
+          if (d === 21) notes = "Aterrizas en Abu Dabi a las 07:20 (hora local de allí) y descanso en hotel.";
+          if (d === 24) notes = "Regresas desde Roma y aterrizas en Abu Dabi a las 07:05 (hora local).";
+          if (d === 28) notes = "Regresas desde Roma y aterrizas en Abu Dabi a las 07:05 (hora local).";
+          days[key] = {
+            status: "away",
+            tag: "Abu Dabi",
+            headline: "Fuera de Madrid · Abu Dabi",
+            notes,
+          };
+        } else if (d === 22 || d === 23 || d === 26 || d === 27) {
+          let notes = "Estancia en Roma.";
+          if (d === 22) notes = "Vuelo de Abu Dabi (14:15 hora local) a Roma (llegada 17:40 hora local). Noche en Roma.";
+          if (d === 23) notes = "Día en Roma; sales hacia Abu Dabi a las 22:00 (hora local de Roma).";
+          if (d === 26) notes = "Vuelo de Abu Dabi (14:15 hora local) a Roma (llegada 17:40 hora local). Noche en Roma.";
+          if (d === 27) notes = "Día en Roma; sales hacia Abu Dabi a las 22:00 (hora local de Roma).";
+          days[key] = {
+            status: "away",
+            tag: "Roma",
+            headline: "Fuera de Madrid · Roma",
+            notes,
+          };
+        } else if (d === 29) {
+          days[key] = {
+            status: "transit",
+            tag: "Vuelve 19:05",
+            headline: "Vuelves a Madrid a las 19:05 (fin a las 19:30)",
+            notes: "Sales de Abu Dabi a las 14:05 (hora local de allí) y aterrizas en Madrid a las 19:05 hora local.",
+          };
+        } else {
+          days[key] = {
+            status: "home",
+            tag: "Libre",
+            headline: "En casa libre",
+            notes: "Día libre en Madrid para cerrar el año.",
+          };
+        }
+      }
+      return { "2026-12": days };
+    }
+
+    const STORAGE_KEY = "turnos_familia_roster_v4";
+    const FB_CFG_KEY = "turnos_familia_fb_cfg_v1";
+
+    let rosterData = loadInitialRoster();
+    let currentYear = 2026;
+    let currentMonthIndex = 11; // 11 = Diciembre
+    let selectedDateKey = "2026-12-03";
+    let isUnlocked = false;
+    let dbRef = null;
+
+    function loadInitialRoster() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Object.keys(parsed).length > 0) return parsed;
+        }
+      } catch (_) {}
+      return buildDecember2026();
+    }
+
+    function persistLocalRoster() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(rosterData));
+    }
+
+    function getMonthKey(year, monthIdx) {
+      return `${year}-${String(monthIdx + 1).padStart(2, "0")}`;
+    }
+
+    function ensureMonthMap(monthKey) {
+      if (!rosterData[monthKey]) {
+        const [y, m] = monthKey.split("-").map(Number);
+        const totalDays = new Date(y, m, 0).getDate();
+        rosterData[monthKey] = {};
+        for (let d = 1; d <= totalDays; d++) {
+          const dk = `${monthKey}-${String(d).padStart(2, "0")}`;
+          rosterData[monthKey][dk] = {
+            status: "home",
+            tag: "Libre",
+            headline: "En casa libre",
+            notes: "Marcado por defecto en casa libre.",
+          };
+        }
+      }
+      return rosterData[monthKey];
+    }
+
+    function renderAll() {
+      const monthKey = getMonthKey(currentYear, currentMonthIndex);
+      const monthMap = ensureMonthMap(monthKey);
+      const dateObj = new Date(currentYear, currentMonthIndex, 1);
+
+      document.getElementById("monthTitle").textContent = dateObj.toLocaleDateString("es-ES", {
+        month: "long",
+        year: "numeric",
+      });
+
+      const values = Object.values(monthMap);
+      const homeCount = values.filter((x) => x.status === "home").length;
+      const transitCount = values.filter((x) => x.status === "transit").length;
+      const reserveCount = values.filter((x) => x.status === "reserve").length;
+      const imaginariaCount = values.filter((x) => x.status === "imaginaria").length;
+      const awayCount = values.filter((x) => x.status === "away").length;
+      document.getElementById("monthStats").textContent =
+        `${homeCount} libre · ${transitCount} sal/lleg · ${reserveCount} res · ${imaginariaCount} imag · ${awayCount} fuera`;
+
+      const firstDayMondayIdx = (dateObj.getDay() + 6) % 7;
+      const daysInMonth = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
+
+      const grid = document.getElementById("calendarGrid");
+      grid.innerHTML = "";
+
+      for (let i = 0; i < firstDayMondayIdx; i++) {
+        const empty = document.createElement("div");
+        empty.className = "rounded-xl bg-slate-50/60";
+        grid.appendChild(empty);
+      }
+
+      const styleMap = {
+        home: "bg-emerald-50/95 border-emerald-200 text-emerald-950 hover:bg-emerald-100/80",
+        transit: "bg-orange-50/95 border-orange-300 text-orange-950 hover:bg-orange-100/80",
+        reserve: "bg-purple-50/95 border-purple-300 text-purple-950 hover:bg-purple-100/80",
+        imaginaria: "bg-sky-50/95 border-sky-300 text-sky-950 hover:bg-sky-100/80",
+        away: "bg-rose-50/95 border-rose-200 text-rose-950 hover:bg-rose-100/80",
+      };
+      const dotMap = {
+        home: "bg-emerald-500",
+        transit: "bg-orange-500",
+        reserve: "bg-purple-500",
+        imaginaria: "bg-sky-500",
+        away: "bg-rose-500",
+      };
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dk = `${monthKey}-${String(d).padStart(2, "0")}`;
+        const item = monthMap[dk] || { status: "home", tag: "Libre", headline: "En casa libre", notes: "" };
+        const isSelected = dk === selectedDateKey;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.onclick = () => {
+          selectedDateKey = dk;
+          renderAll();
+        };
+        btn.className = `day-cell rounded-xl border p-1.5 sm:p-2 text-left flex flex-col justify-between cursor-pointer ${
+          styleMap[item.status] || styleMap.home
+        } ${isSelected ? "ring-2 ring-slate-900 shadow-sm" : ""}`;
+
+        const fallbackTag =
+          item.status === "home"
+            ? "Libre"
+            : item.status === "transit"
+            ? "Salida/Llegada"
+            : item.status === "reserve"
+            ? "Reserva"
+            : item.status === "imaginaria"
+            ? "Imaginaria"
+            : "Fuera";
+
+        btn.innerHTML = `
+          <div class="flex items-center justify-between leading-none">
+            <span class="text-[11px] sm:text-xs font-bold">${d}</span>
+            <span class="w-1.5 h-1.5 rounded-full ${dotMap[item.status] || dotMap.home}"></span>
+          </div>
+          <span class="text-[9px] sm:text-[11px] font-bold leading-[1.1] line-clamp-1 mt-0.5">${item.tag || fallbackTag}</span>
+        `;
+        grid.appendChild(btn);
+      }
+
+      renderDayDetail(monthMap);
+      document.getElementById("editDayBtn").classList.toggle("hidden", !isUnlocked);
+    }
+
+    function renderDayDetail(monthMap) {
+      if (!selectedDateKey || !selectedDateKey.startsWith(getMonthKey(currentYear, currentMonthIndex))) {
+        selectedDateKey = `${getMonthKey(currentYear, currentMonthIndex)}-01`;
+      }
+      const item = monthMap[selectedDateKey] || {
+        status: "home",
+        tag: "Libre",
+        headline: "En casa libre",
+        notes: "",
+      };
+      const [y, m, d] = selectedDateKey.split("-").map(Number);
+      const dt = new Date(y, m - 1, d);
+
+      const badge = document.getElementById("detailBadge");
+      if (item.status === "home") {
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800";
+        badge.textContent = "🟢 En casa libre";
+      } else if (item.status === "transit") {
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800";
+        badge.textContent = "🟠 Salida / Llegada";
+      } else if (item.status === "reserve") {
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800";
+        badge.textContent = "🟣 Reservas";
+      } else if (item.status === "imaginaria") {
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-800";
+        badge.textContent = "🔵 Imaginaria";
+      } else {
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800";
+        badge.textContent = `🔴 Fuera · ${item.tag || "Destino"}`;
+      }
+
+      document.getElementById("detailDateTitle").textContent = dt.toLocaleDateString("es-ES", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
+      document.getElementById("detailHeadline").textContent = item.headline;
+      document.getElementById("detailNotes").textContent = item.notes || "";
+    }
+
+    function changeMonth(delta) {
+      const d = new Date(currentYear, currentMonthIndex + delta, 1);
+      currentYear = d.getFullYear();
+      currentMonthIndex = d.getMonth();
+      selectedDateKey = `${getMonthKey(currentYear, currentMonthIndex)}-01`;
+      renderAll();
+    }
+
+    function syncWorkspaceLayout() {
+      const grid = document.getElementById("workspaceGrid");
+      const rightCol = document.getElementById("rightColumn");
+      const editPanel = document.getElementById("editPanel");
+      const isLandscape = window.matchMedia("(orientation: landscape) and (min-width: 640px)").matches || window.innerWidth >= 1024;
+
+      if (isUnlocked) {
+        rightCol.classList.remove("hidden");
+        editPanel.classList.remove("hidden");
+        if (isLandscape) {
+          grid.className = "grid grid-cols-1 md:grid-cols-12 gap-3 items-start";
+          document.getElementById("leftColumn").className = "min-w-0 md:col-span-7";
+          rightCol.className = "min-w-0 md:col-span-5 md:sticky md:top-2";
+        } else {
+          grid.className = "grid grid-cols-1 gap-2";
+          document.getElementById("leftColumn").className = "min-w-0";
+          rightCol.className = "min-w-0";
+        }
+      } else {
+        rightCol.classList.add("hidden");
+        editPanel.classList.add("hidden");
+        grid.className = "grid grid-cols-1 gap-2";
+        document.getElementById("leftColumn").className = "min-w-0";
+      }
+    }
+
+    window.addEventListener("resize", syncWorkspaceLayout);
+    window.addEventListener("orientationchange", () => setTimeout(syncWorkspaceLayout, 80));
+
+    function handleLockClick() {
+      if (isUnlocked) {
+        lockApp();
+        return;
+      }
+      const pin = prompt("Introduce el PIN para desbloquear:");
+      if (pin === null) return;
+      if (pin.trim() === ADMIN_PIN) {
+        isUnlocked = true;
+        document.getElementById("btnLockToggle").textContent = "🔓 Bloquear";
+        document.getElementById("btnLockToggle").className =
+          "shrink-0 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-purple-200 bg-purple-600 text-white hover:bg-purple-700 transition cursor-pointer";
+        loadSavedFirebaseInputs();
+        syncWorkspaceLayout();
+        renderAll();
+      } else {
+        alert("PIN incorrecto.");
+      }
+    }
+
+    function lockApp() {
+      isUnlocked = false;
+      document.getElementById("editDayModal").classList.add("hidden");
+      document.getElementById("btnLockToggle").textContent = "🔒 Desbloquear";
+      document.getElementById("btnLockToggle").className =
+        "shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer";
+      syncWorkspaceLayout();
+      renderAll();
+    }
+
+    function toggleRulesHelp() {
+      document.getElementById("rulesHelpBox").classList.toggle("hidden");
+    }
+
+    function openDayEditor() {
+      const monthKey = getMonthKey(currentYear, currentMonthIndex);
+      const item = ensureMonthMap(monthKey)[selectedDateKey];
+      document.getElementById("modalDayTitle").textContent = `Editar ${selectedDateKey}`;
+      document.getElementById("editStatusSelect").value = item.status;
+      document.getElementById("editTagInput").value = item.tag || "";
+      document.getElementById("editHeadlineInput").value = item.headline;
+      document.getElementById("editNotesInput").value = item.notes;
+      document.getElementById("editDayModal").classList.remove("hidden");
+    }
+
+    function closeDayEditor() {
+      document.getElementById("editDayModal").classList.add("hidden");
+    }
+
+    function quickSetDayFree() {
+      document.getElementById("editStatusSelect").value = "home";
+      document.getElementById("editTagInput").value = "Libre";
+      document.getElementById("editHeadlineInput").value = "En casa libre";
+      document.getElementById("editNotesInput").value = "Día libre en Madrid.";
+      saveDayEdit();
+    }
+
+    function saveDayEdit() {
+      const monthKey = getMonthKey(currentYear, currentMonthIndex);
+      const monthMap = ensureMonthMap(monthKey);
+      monthMap[selectedDateKey] = {
+        status: document.getElementById("editStatusSelect").value,
+        tag: document.getElementById("editTagInput").value.trim(),
+        headline: document.getElementById("editHeadlineInput").value.trim() || "Actualizado",
+        notes: document.getElementById("editNotesInput").value.trim(),
+      };
+      persistLocalRoster();
+      closeDayEditor();
+      renderAll();
+      if (dbRef) syncCurrentMonthToFirebase();
+    }
+
+    function loadSampleDecember2026() {
+      rosterData = buildDecember2026();
+      currentYear = 2026;
+      currentMonthIndex = 11;
+      selectedDateKey = "2026-12-03";
+      persistLocalRoster();
+      renderAll();
+      document.getElementById("parseStatus").textContent = "Restaurado diciembre 2026 con destinos y colores.";
+    }
+
+    function detectCityFromText(text) {
+      const normalized = text.replace(/\s+/g, " ");
+      const iataMatch = normalized.match(/\b(SKBO|SBGR|OMAA|LIRF|MMMX|SCEL|FMEE|KJFK|KMIA|MPTO|SEQM|SPJC|MDSD|MMUN)\b/);
+      if (iataMatch && AIRPORT_NAMES[iataMatch[1]]) {
+        return AIRPORT_NAMES[iataMatch[1]];
+      }
+      if (/BOGOTA/i.test(normalized)) return "Bogotá";
+      if (/SAO PAULO|GUARULHOS/i.test(normalized)) return "São Paulo";
+      if (/ABU DHABI|ABU DABI/i.test(normalized)) return "Abu Dabi";
+      if (/ROMA|ROME/i.test(normalized)) return "Roma";
+      if (/SANTIAGO|CHILE/i.test(normalized)) return "Chile";
+      if (/MEXICO/i.test(normalized)) return "México";
+      if (/REUNION/i.test(normalized)) return "Reunión";
+      return null;
+    }
+
+    async function handlePdfUpload(event) {
+      const file = event.target.files?.[0];
+      if (!file || !window.pdfjsLib) return;
+      const statusEl = document.getElementById("parseStatus");
+      statusEl.textContent = "Leyendo PDF...";
+
+      try {
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let fullText = "";
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          fullText += "\n" + content.items.map((it) => it.str).join(" ");
+        }
+
+        const planMatch = fullText.match(/Planning from\s+(\d{2})\/(\d{2})\/(\d{4})/);
+        let y = planMatch ? Number(planMatch[3]) : currentYear;
+        let mIdx = planMatch ? Number(planMatch[2]) - 1 : currentMonthIndex;
+        const mKey = getMonthKey(y, mIdx);
+        const daysInMonth = new Date(y, mIdx + 1, 0).getDate();
+
+        const newMonth = {};
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dk = `${mKey}-${String(d).padStart(2, "0")}`;
+          newMonth[dk] = {
+            status: "home",
+            tag: "Libre",
+            headline: "En casa libre",
+            notes: "Sin actividad programada.",
+          };
+        }
+
+        const dateRowRegex = /(\d{2})\/(\d{2})\/(\d{2})/g;
+        let match;
+        while ((match = dateRowRegex.exec(fullText)) !== null) {
+          const dayNum = Number(match[1]);
+          const monNum = Number(match[2]);
+          if (monNum !== mIdx + 1 || dayNum < 1 || dayNum > daysInMonth) continue;
+          const dk = `${mKey}-${String(dayNum).padStart(2, "0")}`;
+          const snippet = fullText.slice(Math.max(0, match.index - 40), match.index + 220);
+
+          if (/VACACIONES/i.test(snippet)) {
+            newMonth[dk] = {
+              status: "home",
+              tag: "Vacaciones",
+              headline: "En casa · Vacaciones",
+              notes: "Periodo de vacaciones en Madrid.",
+            };
+          } else if (/DAY OFF/i.test(snippet)) {
+            newMonth[dk] = {
+              status: "home",
+              tag: "Libre",
+              headline: "En casa libre",
+              notes: "Día libre en Madrid.",
+            };
+          } else if (/\b(IMAGINARIA)\b/i.test(snippet)) {
+            newMonth[dk] = {
+              status: "imaginaria",
+              tag: "Imaginaria",
+              headline: "Imaginaria",
+              notes: "Día de imaginaria asignado.",
+            };
+          } else if (/\b(RESERVA|SBY|STANDBY)\b/i.test(snippet)) {
+            newMonth[dk] = {
+              status: "reserve",
+              tag: "Reservas",
+              headline: "Reservas",
+              notes: "Día de reserva asignado.",
+            };
+          } else if (/LEMD/i.test(snippet) && !/HOTEL/i.test(snippet)) {
+            const arrMatch = snippet.match(/(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2})\s+LEMD/);
+            const depMatch = snippet.match(/(\d{2}\/\d{2}\/\d{2})\s+(\d{2}:\d{2})\s+LEMD\s+\d{2}\/\d{2}\/\d{2}/);
+            const city = detectCityFromText(snippet);
+            if (depMatch) {
+              newMonth[dk] = {
+                status: "transit",
+                tag: `Sale ${depMatch[2]}`,
+                headline: `Sales de Madrid a las ${depMatch[2]}${city ? ` hacia ${city}` : ""}`,
+                notes: "Salida desde Madrid (hora local de Madrid).",
+              };
+            } else if (arrMatch) {
+              newMonth[dk] = {
+                status: "transit",
+                tag: `Llega ${arrMatch[2]}`,
+                headline: `Llegas a Madrid a las ${arrMatch[2]}${city ? ` desde ${city}` : ""}`,
+                notes: "Aterrizaje en Madrid (hora local de Madrid).",
+              };
+            } else {
+              newMonth[dk] = {
+                status: "transit",
+                tag: "Salida/Llegada",
+                headline: `Salida o llegada${city ? ` (${city})` : ""}`,
+                notes: "Revisa la hora exacta en el detalle del vuelo.",
+              };
+            }
+          } else if (/HOTEL/i.test(snippet)) {
+            const city = detectCityFromText(snippet) || "Fuera";
+            newMonth[dk] = {
+              status: "away",
+              tag: city,
+              headline: `Fuera de Madrid · ${city}`,
+              notes: `Estancia en ${city}.`,
+            };
+          }
+        }
+
+        rosterData[mKey] = newMonth;
+        currentYear = y;
+        currentMonthIndex = mIdx;
+        selectedDateKey = `${mKey}-01`;
+        persistLocalRoster();
+        renderAll();
+        statusEl.textContent = `Importado ${mKey} (${pdf.numPages} págs.) con destinos visibles. Sincroniza con Firebase cuando quieras.`;
+      } catch (err) {
+        statusEl.textContent = "Error leyendo el PDF: " + err.message;
+      }
+    }
+
+    function loadSavedFirebaseInputs() {
+      let saved = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(FB_CFG_KEY) || "{}");
+      } catch (_) {}
+      document.getElementById("fbUrlInput").value = saved.databaseURL || DEFAULT_FIREBASE_URL;
+      document.getElementById("fbPathInput").value = saved.path || DEFAULT_FIREBASE_PATH;
+    }
+
+    function initFirebaseFromConfig() {
+      let saved = {};
+      try {
+        saved = JSON.parse(localStorage.getItem(FB_CFG_KEY) || "{}");
+      } catch (_) {}
+      const url = (saved.databaseURL || DEFAULT_FIREBASE_URL).trim();
+      const path = (saved.path || DEFAULT_FIREBASE_PATH).trim() || "turnosFamilia";
+      if (!url || !window.firebase) return;
+
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp({ databaseURL: url });
+        }
+        dbRef = firebase.database().ref(path);
+        document.getElementById("syncBadge").textContent = "🔥 Conectado a Firebase";
+
+        dbRef.on("value", (snap) => {
+          const val = snap.val();
+          if (val && typeof val === "object") {
+            rosterData = { ...rosterData, ...val };
+            persistLocalRoster();
+            renderAll();
+          }
+        });
+      } catch (_) {
+        document.getElementById("syncBadge").textContent = "Error Firebase";
+      }
+    }
+
+    async function pullFromFirebaseNow() {
+      const fbStatus = document.getElementById("fbStatus");
+      if (!dbRef) initFirebaseFromConfig();
+      if (!dbRef) {
+        fbStatus.textContent = "Primero pon y guarda tu Database URL.";
+        return;
+      }
+      try {
+        const snap = await dbRef.get();
+        const val = snap.val();
+        if (val && typeof val === "object") {
+          rosterData = { ...rosterData, ...val };
+          persistLocalRoster();
+          renderAll();
+          fbStatus.textContent = "Datos actualizados desde Firebase.";
+        } else {
+          fbStatus.textContent = "Firebase está conectado pero aún no hay datos guardados en esa ruta.";
+        }
+      } catch (err) {
+        fbStatus.textContent = "Error al leer Firebase: " + err.message;
+      }
+    }
+
+    function saveFirebaseConfigAndSync() {
+      const databaseURL = document.getElementById("fbUrlInput").value.trim();
+      const path = document.getElementById("fbPathInput").value.trim() || "turnosFamilia";
+      localStorage.setItem(FB_CFG_KEY, JSON.stringify({ databaseURL, path }));
+
+      if (!databaseURL) {
+        document.getElementById("fbStatus").textContent = "Pon la URL de tu Realtime Database.";
+        return;
+      }
+      initFirebaseFromConfig();
+      syncCurrentMonthToFirebase();
+    }
+
+    async function syncCurrentMonthToFirebase() {
+      const fbStatus = document.getElementById("fbStatus");
+      if (!dbRef) initFirebaseFromConfig();
+      if (!dbRef) {
+        fbStatus.textContent = "Primero guarda una Database URL válida.";
+        return;
+      }
+      const mKey = getMonthKey(currentYear, currentMonthIndex);
+      try {
+        await dbRef.child(mKey).set(ensureMonthMap(mKey));
+        fbStatus.textContent = `Mes ${mKey} sincronizado en Firebase.`;
+      } catch (err) {
+        fbStatus.textContent = "No se pudo subir a Firebase: " + err.message;
+      }
+    }
+
+    loadSavedFirebaseInputs();
+    initFirebaseFromConfig();
+    syncWorkspaceLayout();
+    renderAll();
+  </script>
+</body>
+</html>
