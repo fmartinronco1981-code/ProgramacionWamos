@@ -1011,11 +1011,11 @@
     function formatExcelCellDate(val) {
       if (val == null || val === "") return "";
       if (val instanceof Date && !isNaN(val.getTime())) {
-        const dd = String(val.getUTCDate()).padStart(2, "0");
-        const mm = String(val.getUTCMonth() + 1).padStart(2, "0");
-        const yy = String(val.getUTCFullYear()).slice(-2);
-        const hh = String(val.getUTCHours()).padStart(2, "0");
-        const mi = String(val.getUTCMinutes()).padStart(2, "0");
+        const dd = String(val.getDate()).padStart(2, "0");
+        const mm = String(val.getMonth() + 1).padStart(2, "0");
+        const yy = String(val.getFullYear()).slice(-2);
+        const hh = String(val.getHours()).padStart(2, "0");
+        const mi = String(val.getMinutes()).padStart(2, "0");
         return `${dd}/${mm}/${yy} ${hh}:${mi}`;
       }
       return String(val).trim();
@@ -1200,7 +1200,7 @@
 
           if (startInMonth) {
             if (e.origCode === "LEMD") {
-              setDayIfHigherPriority(e.startDay, 45, {
+              setDayIfHigherPriority(e.startDay, 60, {
                 status: "transit",
                 tag: `Sale ${e.startTime}`,
                 headline: `Sales de Madrid a las ${e.startTime} hacia ${destCity}`,
@@ -1218,7 +1218,7 @@
 
           if (endInMonth) {
             if (e.destCode === "LEMD") {
-              setDayIfHigherPriority(e.endDay, 50, {
+              setDayIfHigherPriority(e.endDay, 65, {
                 status: "transit",
                 tag: `Llega ${e.endTime}`,
                 headline: `Llegas a Madrid a las ${e.endTime} desde ${origCity}`,
