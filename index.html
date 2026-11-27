@@ -65,13 +65,16 @@
     <header class="flex items-center justify-between gap-2 mb-2">
       <h1 class="text-base sm:text-xl font-bold text-slate-900 leading-tight truncate">¿Cuándo está en casa?</h1>
 
-      <button
-        id="btnLockToggle"
-        onclick="handleLockClick()"
-        class="shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-      >
-        🔒 Desbloquear
-      </button>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <span id="offlineStatusBadge" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-800">📶 Guardado en móvil</span>
+        <button
+          id="btnLockToggle"
+          onclick="handleLockClick()"
+          class="shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+        >
+          🔒 Desbloquear
+        </button>
+      </div>
     </header>
 
     <!-- Espacio de trabajo: en modo apaisado o ancho, calendario a la izquierda y edición a la derecha -->
@@ -484,6 +487,7 @@
 
     function persistLocalRoster() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(rosterData));
+      markOfflineReady();
     }
 
     function getMonthKey(year, monthIdx) {
@@ -1216,14 +1220,26 @@
 
           if (isHotel) {
             const hotelCity = AIRPORT_NAMES[e.origCode] || detectCityFromText(r) || "Fuera";
-            const hotelNameMatch = r.match(/NAME:\s*([^\n|]+)/i);
-            const hotelLabel = hotelNameMatch ? hotelNameMatch[1].trim() : `Hotel en ${hotelCity}`;
+            const hInfo = extractHotelDetails(r, hotelCity);
+            const stayKey = `${hotelCity}|${hInfo.name}`;
+            const prevDayItem = sDay > 1 ? newMonth[`${mKey}-${String(sDay - 1).padStart(2, "0")}`] : null;
+            const isContinuationOfSameStay =
+              prevDayItem &&
+              prevDayItem.status === "away" &&
+              prevDayItem._hotelStayKey === stayKey;
+
             for (let d = sDay; d <= eDay; d++) {
+              const isFirstDayOfStay = d === sDay && !isContinuationOfSameStay;
               setDayIfHigherPriority(d, 30, {
                 status: "away",
                 tag: hotelCity,
-                headline: `Fuera en ${hotelCity} · Hotel`,
-                notes: `${hotelLabel} (${e.startTime}–${e.endTime}).`,
+                headline: isFirstDayOfStay
+                  ? `${hInfo.name} · ${hotelCity}`
+                  : `Fuera en ${hotelCity} · ${hInfo.name}`,
+                notes: isFirstDayOfStay
+                  ? hInfo.fullSummary
+                  : `Estancia en ${hInfo.name} (${hInfo.shortSummary}).`,
+                _hotelStayKey: stayKey,
               });
             }
             continue;
@@ -1299,6 +1315,151 @@
         if (statusEl) statusEl.textContent = "Error leyendo el archivo: " + err.message;
       }
     }
+
+
+    function extractHotelDetails(rawText, hotelCity) {
+      const text = String(rawText || "").replace(/
+/g, "
+");
+      const pick = (label) => {
+        const re = new RegExp(`(?:^|[|\n"\s])${label}:\s*([^\n|]+)`, "i");
+        const m = text.match(re);
+        return m ? m[1].replace(/"/g, "").trim() : "";
+      };
+
+      const name = pick("NAME") || `Hotel en ${hotelCity}`;
+      const address = pick("ADDRESS");
+      const phone = pick("PHONE");
+      const breakfast = pick("BREAKFAST");
+      const laundry = pick("LAUNDRY SERVICE");
+      const laundryPcs = pick("LAUNDRY SERVICE NBR OF PCS");
+      const transfer = pick("TRANSFER SERVICE");
+      const transferDetails = pick("TRANSFERS DETAILS");
+
+      let remarks = "";
+      const remMatch = text.match(/REMARKS:\s*([\s\S]*?)$/i);
+      if (remMatch) {
+        remarks = remMatch[1]
+          .replace(/^"+|"+$/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      const compactParts = [name];
+      if (phone) compactParts.push(`Tel: ${phone}`);
+      if (address) compactParts.push(`Dir: ${address}`);
+      if (breakfast) compactParts.push(`Desayuno: ${breakfast}`);
+
+      const laundryText = laundry
+        ? `Lavandería: ${laundry}${laundryPcs && laundryPcs !== "0" ? ` (${laundryPcs} pzs/día)` : ""}`
+        : "";
+      if (laundryText) compactParts.push(laundryText);
+
+      const transferText = [transfer, transferDetails].filter(Boolean).join(" · ");
+      if (transferText) compactParts.push(`Transfer: ${transferText}`);
+
+      if (remarks) {
+        const shortRemarks = remarks.length > 260 ? remarks.slice(0, 257).trim() + "..." : remarks;
+        compactParts.push(`Notas: ${shortRemarks}`);
+      }
+
+      return {
+        name,
+        fullSummary: compactParts.join(" | "),
+        shortSummary: `${name}${transfer ? ` · Transfer: ${transfer}` : ""}${laundry ? ` · Lavandería: ${laundry}` : ""}`,
+      };
+    }
+
+
+    // === MODO OFFLINE EN ARCHIVO ÚNICO (LOCALSTORAGE + SERVICE WORKER EMBEBIDO) ===
+    const OFFLINE_META_KEY = "turnos_familia_offline_meta_v1";
+
+    function markOfflineReady() {
+      try {
+        const meta = {
+          savedAt: new Date().toISOString(),
+          monthsCount: Object.keys(rosterData || {}).length,
+        };
+        localStorage.setItem(OFFLINE_META_KEY, JSON.stringify(meta));
+        updateOfflineBadge();
+      } catch (_) {}
+    }
+
+    function updateOfflineBadge() {
+      const badge = document.getElementById("offlineStatusBadge");
+      if (!badge) return;
+      const online = navigator.onLine;
+      let savedText = "Guardado en móvil";
+      try {
+        const meta = JSON.parse(localStorage.getItem(OFFLINE_META_KEY) || "null");
+        if (meta && meta.savedAt) {
+          const dt = new Date(meta.savedAt);
+          if (!isNaN(dt.getTime())) {
+            const hh = String(dt.getHours()).padStart(2, "0");
+            const mm = String(dt.getMinutes()).padStart(2, "0");
+            savedText = `Offline listo (${hh}:${mm})`;
+          }
+        }
+      } catch (_) {}
+      badge.textContent = online ? `📶 ${savedText}` : `✈️ Sin datos · ${savedText}`;
+      badge.className = online
+        ? "shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-800"
+        : "shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold border border-amber-300 bg-amber-50 text-amber-900";
+    }
+
+    function registerEmbeddedServiceWorker() {
+      if (!("serviceWorker" in navigator)) return;
+      if (location.protocol !== "https:" && location.protocol !== "http:") return;
+      try {
+        const swCode = `
+          const CACHE_NAME = "turnos-familia-offline-v32";
+          const ASSETS = [
+            self.location.href,
+            "https://cdn.tailwindcss.com",
+            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+            "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js",
+            "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js",
+            "https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"
+          ];
+          self.addEventListener("install", (event) => {
+            event.waitUntil(
+              caches.open(CACHE_NAME).then((cache) =>
+                Promise.allSettled(ASSETS.map((url) => cache.add(url)))
+              ).then(() => self.skipWaiting())
+            );
+          });
+          self.addEventListener("activate", (event) => {
+            event.waitUntil(
+              caches.keys().then((keys) =>
+                Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+              ).then(() => self.clients.claim())
+            );
+          });
+          self.addEventListener("fetch", (event) => {
+            if (event.request.method !== "GET") return;
+            event.respondWith(
+              caches.match(event.request).then((cached) => {
+                if (cached) return cached;
+                return fetch(event.request).then((resp) => {
+                  if (resp && resp.status === 200 && resp.type !== "opaque") {
+                    const clone = resp.clone();
+                    caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+                  }
+                  return resp;
+                }).catch(() => cached || new Response("Sin conexión", { status: 503 }));
+              })
+            );
+          });
+        `;
+        const blob = new Blob([swCode], { type: "application/javascript" });
+        const swUrl = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(swUrl).catch(() => {});
+      } catch (_) {}
+    }
+
+    window.addEventListener("online", updateOfflineBadge);
+    window.addEventListener("offline", updateOfflineBadge);
 
     function loadSavedFirebaseInputs() {
       let saved = {};
@@ -1390,6 +1551,8 @@
       }
     }
 
+    markOfflineReady();
+    registerEmbeddedServiceWorker();
     loadSavedFirebaseInputs();
     initFirebaseFromConfig();
     syncWorkspaceLayout();
