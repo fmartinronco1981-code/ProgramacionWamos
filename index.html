@@ -21,8 +21,13 @@
   </script>
   <style>
     .day-cell {
-      min-height: 82px;
+      min-height: 46px;
       transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    @media (min-width: 640px) {
+      .day-cell {
+        min-height: 62px;
+      }
     }
     .day-cell:active {
       transform: scale(0.97);
@@ -30,76 +35,69 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen antialiased">
-  <div id="app" class="max-w-3xl mx-auto px-3 sm:px-6 py-5 pb-20">
-    <!-- Cabecera -->
-    <header class="flex flex-wrap items-center justify-between gap-3 mb-5">
-      <div>
-        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium bg-sky-100 text-sky-800 mb-1.5">
-          <span>✈️</span>
-          <span id="syncBadge">Modo local · Listo para Firebase</span>
-        </div>
-        <h1 class="text-xl sm:text-2xl font-bold text-slate-900">¿Cuándo está en casa?</h1>
-        <p class="text-sm text-slate-500">Horarios en hora local de Madrid · Destinos claros</p>
-      </div>
+  <div id="app" class="max-w-3xl mx-auto px-2.5 sm:px-6 py-2 pb-10">
+    <span id="syncBadge" class="sr-only">Modo local · Listo para Firebase</span>
+    <!-- Cabecera compacta: título a la izquierda, desbloquear pequeñito arriba a la derecha -->
+    <header class="flex items-center justify-between gap-2 mb-2">
+      <h1 class="text-base sm:text-xl font-bold text-slate-900 leading-tight truncate">¿Cuándo está en casa?</h1>
 
       <button
         id="btnLockToggle"
         onclick="handleLockClick()"
-        class="px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 shadow-sm transition cursor-pointer"
+        class="shrink-0 px-2 py-1 rounded-lg text-[11px] font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition cursor-pointer"
       >
         🔒 Desbloquear
       </button>
     </header>
 
-    <!-- Selector de mes y leyenda (PARCHE 1: 4 colores -> Verde libre, Naranja salida/llegada, Morado reservas, Rojo fuera) -->
-    <section class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 mb-4">
-      <div class="flex items-center justify-between gap-2 mb-4">
+    <!-- Selector de mes y leyenda compacta -->
+    <section class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-2 sm:p-3 mb-2">
+      <div class="flex items-center justify-between gap-2 mb-1.5">
         <button
           id="prevMonthBtn"
           onclick="changeMonth(-1)"
-          class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 cursor-pointer"
+          class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 text-sm cursor-pointer"
           aria-label="Mes anterior"
         >
           ‹
         </button>
-        <div class="text-center">
-          <h2 id="monthTitle" class="text-lg font-bold text-slate-900 capitalize">Diciembre 2026</h2>
-          <p id="monthStats" class="text-xs text-slate-500 mt-0.5"></p>
+        <div class="text-center leading-none">
+          <h2 id="monthTitle" class="text-sm sm:text-base font-bold text-slate-900 capitalize">Diciembre 2026</h2>
+          <p id="monthStats" class="text-[10px] sm:text-[11px] text-slate-500 mt-0.5"></p>
         </div>
         <button
           id="nextMonthBtn"
           onclick="changeMonth(1)"
-          class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 cursor-pointer"
+          class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 text-sm cursor-pointer"
           aria-label="Mes siguiente"
         >
           ›
         </button>
       </div>
 
-      <!-- Leyenda: Verde = En casa libre, Naranja = Salida / Llegada, Morado = Reservas, Rojo = Fuera (Destino) -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-medium">
-        <div class="flex items-center gap-2 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-xl px-2.5 py-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
-          <span>En casa libre</span>
+      <div class="grid grid-cols-4 gap-1 text-[10px] sm:text-xs font-medium">
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-emerald-50 text-emerald-900 border border-emerald-200/80 rounded-lg px-1.5 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+          <span class="truncate">Libre</span>
         </div>
-        <div class="flex items-center gap-2 bg-orange-50 text-orange-900 border border-orange-200/80 rounded-xl px-2.5 py-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0"></span>
-          <span>Salida / Llegada</span>
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-orange-50 text-orange-900 border border-orange-200/80 rounded-lg px-1.5 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
+          <span class="truncate">Sal/Lleg</span>
         </div>
-        <div class="flex items-center gap-2 bg-purple-50 text-purple-900 border border-purple-200/80 rounded-xl px-2.5 py-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0"></span>
-          <span>Reservas</span>
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-purple-50 text-purple-900 border border-purple-200/80 rounded-lg px-1.5 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-purple-500 shrink-0"></span>
+          <span class="truncate">Reservas</span>
         </div>
-        <div class="flex items-center gap-2 bg-rose-50 text-rose-900 border border-rose-200/80 rounded-xl px-2.5 py-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
-          <span>Fuera (Destino)</span>
+        <div class="flex items-center justify-center sm:justify-start gap-1 bg-rose-50 text-rose-900 border border-rose-200/80 rounded-lg px-1.5 py-1 truncate">
+          <span class="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>
+          <span class="truncate">Fuera</span>
         </div>
       </div>
     </section>
 
     <!-- Calendario mensual -->
-    <section class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-3 sm:p-4 mb-4">
-      <div class="grid grid-cols-7 gap-1.5 text-center text-xs font-semibold text-slate-400 uppercase mb-2">
+    <section class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-2 sm:p-3 mb-2">
+      <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-slate-400 uppercase mb-1">
         <div>Lun</div>
         <div>Mar</div>
         <div>Mié</div>
@@ -108,29 +106,31 @@
         <div>Sáb</div>
         <div>Dom</div>
       </div>
-      <div id="calendarGrid" class="grid grid-cols-7 gap-1.5"></div>
+      <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
     </section>
 
     <!-- Detalle del día seleccionado -->
-    <section id="dayDetailCard" class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-5 mb-4">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <span id="detailBadge" class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2"></span>
-          <h3 id="detailDateTitle" class="text-lg font-bold text-slate-900"></h3>
-          <p id="detailHeadline" class="text-base font-medium text-slate-800 mt-1"></p>
-          <p id="detailNotes" class="text-sm text-slate-600 mt-1.5 leading-relaxed"></p>
+    <section id="dayDetailCard" class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-2.5 sm:p-3 mb-2">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-1.5 mb-1">
+            <span id="detailBadge" class="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold"></span>
+            <h3 id="detailDateTitle" class="text-xs sm:text-sm font-bold text-slate-900 capitalize"></h3>
+          </div>
+          <p id="detailHeadline" class="text-xs sm:text-sm font-semibold text-slate-800"></p>
+          <p id="detailNotes" class="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-snug"></p>
         </div>
         <button
           id="editDayBtn"
           onclick="openDayEditor()"
-          class="hidden shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
+          class="hidden shrink-0 px-2 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer"
         >
-          ✏️ Editar día
+          ✏️ Editar
         </button>
       </div>
     </section>
 
-    <!-- Panel de Administración (oculto hasta desbloquear con PIN 1234) -->
+    <!-- Panel de Administración -->
     <section id="editPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-4 sm:p-5 space-y-5 mb-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
@@ -141,7 +141,7 @@
           onclick="lockApp()"
           class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer"
         >
-          Bloquear
+          Salir
         </button>
       </div>
 
@@ -191,7 +191,7 @@
     }
   }
 }</pre>
-          <p class="text-[11px] text-slate-500">Así tu mujer puede leer en tiempo real y tú puedes modificar/sincronizar al desbloquear con PIN.</p>
+          <p class="text-[11px] text-slate-500">Así tu mujer puede leer en tiempo real y tú puedes modificar/sincronizar sin bloqueo de contraseña.</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -521,11 +521,11 @@
             : "Fuera";
 
         btn.innerHTML = `
-          <div class="flex items-center justify-between">
-            <span class="text-xs sm:text-sm font-bold">${d}</span>
-            <span class="w-2 h-2 rounded-full ${dotMap[item.status] || dotMap.home}"></span>
+          <div class="flex items-center justify-between leading-none">
+            <span class="text-[11px] sm:text-xs font-bold">${d}</span>
+            <span class="w-1.5 h-1.5 rounded-full ${dotMap[item.status] || dotMap.home}"></span>
           </div>
-          <span class="text-[10px] sm:text-[11px] font-bold leading-tight line-clamp-2">${item.tag || fallbackTag}</span>
+          <span class="text-[9px] sm:text-[11px] font-bold leading-[1.1] line-clamp-1 mt-0.5">${item.tag || fallbackTag}</span>
         `;
         grid.appendChild(btn);
       }
@@ -549,16 +549,16 @@
 
       const badge = document.getElementById("detailBadge");
       if (item.status === "home") {
-        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-emerald-100 text-emerald-800";
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800";
         badge.textContent = "🟢 En casa libre";
       } else if (item.status === "transit") {
-        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-orange-100 text-orange-800";
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-800";
         badge.textContent = "🟠 Salida / Llegada";
       } else if (item.status === "reserve") {
-        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-purple-100 text-purple-800";
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-800";
         badge.textContent = "🟣 Reservas";
       } else {
-        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold mb-2 bg-rose-100 text-rose-800";
+        badge.className = "inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800";
         badge.textContent = `🔴 Fuera · ${item.tag || "Destino"}`;
       }
 
@@ -614,7 +614,6 @@
     }
 
     function openDayEditor() {
-      if (!isUnlocked) return;
       const monthKey = getMonthKey(currentYear, currentMonthIndex);
       const item = ensureMonthMap(monthKey)[selectedDateKey];
       document.getElementById("modalDayTitle").textContent = `Editar ${selectedDateKey}`;
@@ -638,7 +637,6 @@
     }
 
     function saveDayEdit() {
-      if (!isUnlocked) return;
       const monthKey = getMonthKey(currentYear, currentMonthIndex);
       const monthMap = ensureMonthMap(monthKey);
       monthMap[selectedDateKey] = {
