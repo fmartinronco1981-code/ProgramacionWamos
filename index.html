@@ -43,11 +43,11 @@
       </div>
 
       <button
-        id="btnAdminToggle"
-        onclick="handleAdminClick()"
+        id="btnLockToggle"
+        onclick="handleLockClick()"
         class="px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 shadow-sm transition cursor-pointer"
       >
-        🔒 Admin
+        🔒 Desbloquear
       </button>
     </header>
 
@@ -130,18 +130,18 @@
       </div>
     </section>
 
-    <!-- Panel de Administración -->
-    <section id="adminPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-4 sm:p-5 space-y-5">
+    <!-- Panel de Administración (oculto hasta desbloquear con PIN 1234) -->
+    <section id="editPanel" class="hidden bg-white rounded-2xl border-2 border-purple-200 shadow-md p-4 sm:p-5 space-y-5 mb-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
           <h3 class="text-base font-bold text-slate-900">Panel de Control · Cargar y Sincronizar</h3>
           <p class="text-xs text-slate-500">Importa el PDF mensual de JetSched o sincroniza con Firebase Realtime Database</p>
         </div>
         <button
-          onclick="closeAdmin()"
+          onclick="lockApp()"
           class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer"
         >
-          Salir
+          Bloquear
         </button>
       </div>
 
@@ -171,7 +171,28 @@
 
       <!-- Configuración Firebase Realtime Database -->
       <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-3">
-        <label class="block text-sm font-semibold text-slate-800">2. Conexión con Firebase Realtime Database</label>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <label class="block text-sm font-semibold text-slate-800">2. Conexión con Firebase Realtime Database</label>
+          <button
+            type="button"
+            onclick="toggleRulesHelp()"
+            class="text-xs font-semibold text-purple-700 hover:underline cursor-pointer"
+          >
+            Ver reglas sugeridas para Realtime DB
+          </button>
+        </div>
+        <div id="rulesHelpBox" class="hidden text-xs bg-white border border-purple-200 rounded-xl p-3 text-slate-700 space-y-1.5">
+          <p class="font-semibold text-slate-900">En Firebase Console → Realtime Database → Reglas:</p>
+          <pre class="bg-slate-900 text-emerald-300 p-2.5 rounded-lg overflow-x-auto text-[11px]">{
+  "rules": {
+    "turnosFamilia": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}</pre>
+          <p class="text-[11px] text-slate-500">Así tu mujer puede leer en tiempo real y tú puedes modificar/sincronizar al desbloquear con PIN.</p>
+        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <span class="block text-xs font-medium text-slate-600 mb-1">Database URL</span>
@@ -205,6 +226,12 @@
             class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
           >
             Sincronizar mes actual ahora
+          </button>
+          <button
+            onclick="pullFromFirebaseNow()"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+          >
+            Descargar cambios de Firebase
           </button>
         </div>
         <p id="fbStatus" class="text-xs text-slate-600"></p>
@@ -385,7 +412,7 @@
     let currentYear = 2026;
     let currentMonthIndex = 11; // 11 = Diciembre
     let selectedDateKey = "2026-12-03";
-    let isAdminUnlocked = false;
+    let isUnlocked = false;
     let dbRef = null;
 
     function loadInitialRoster() {
@@ -504,7 +531,7 @@
       }
 
       renderDayDetail(monthMap);
-      document.getElementById("editDayBtn").classList.toggle("hidden", !isAdminUnlocked);
+      document.getElementById("editDayBtn").classList.toggle("hidden", !isUnlocked);
     }
 
     function renderDayDetail(monthMap) {
@@ -552,17 +579,19 @@
       renderAll();
     }
 
-    function handleAdminClick() {
-      if (isAdminUnlocked) {
-        document.getElementById("adminPanel").classList.toggle("hidden");
+    function handleLockClick() {
+      if (isUnlocked) {
+        lockApp();
         return;
       }
-      const pin = prompt("Introduce el PIN de administrador:");
+      const pin = prompt("Introduce el PIN para desbloquear:");
       if (pin === null) return;
       if (pin.trim() === ADMIN_PIN) {
-        isAdminUnlocked = true;
-        document.getElementById("btnAdminToggle").textContent = "🔓 Admin";
-        document.getElementById("adminPanel").classList.remove("hidden");
+        isUnlocked = true;
+        document.getElementById("btnLockToggle").textContent = "🔓 Bloquear";
+        document.getElementById("btnLockToggle").className =
+          "px-3.5 py-2 rounded-xl text-sm font-semibold border border-purple-200 bg-purple-600 text-white hover:bg-purple-700 shadow-sm transition cursor-pointer";
+        document.getElementById("editPanel").classList.remove("hidden");
         loadSavedFirebaseInputs();
         renderAll();
       } else {
@@ -570,11 +599,22 @@
       }
     }
 
-    function closeAdmin() {
-      document.getElementById("adminPanel").classList.add("hidden");
+    function lockApp() {
+      isUnlocked = false;
+      document.getElementById("editPanel").classList.add("hidden");
+      document.getElementById("editDayModal").classList.add("hidden");
+      document.getElementById("btnLockToggle").textContent = "🔒 Desbloquear";
+      document.getElementById("btnLockToggle").className =
+        "px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 shadow-sm transition cursor-pointer";
+      renderAll();
+    }
+
+    function toggleRulesHelp() {
+      document.getElementById("rulesHelpBox").classList.toggle("hidden");
     }
 
     function openDayEditor() {
+      if (!isUnlocked) return;
       const monthKey = getMonthKey(currentYear, currentMonthIndex);
       const item = ensureMonthMap(monthKey)[selectedDateKey];
       document.getElementById("modalDayTitle").textContent = `Editar ${selectedDateKey}`;
@@ -598,6 +638,7 @@
     }
 
     function saveDayEdit() {
+      if (!isUnlocked) return;
       const monthKey = getMonthKey(currentYear, currentMonthIndex);
       const monthMap = ensureMonthMap(monthKey);
       monthMap[selectedDateKey] = {
@@ -789,6 +830,29 @@
       }
     }
 
+    async function pullFromFirebaseNow() {
+      const fbStatus = document.getElementById("fbStatus");
+      if (!dbRef) initFirebaseFromConfig();
+      if (!dbRef) {
+        fbStatus.textContent = "Primero pon y guarda tu Database URL.";
+        return;
+      }
+      try {
+        const snap = await dbRef.get();
+        const val = snap.val();
+        if (val && typeof val === "object") {
+          rosterData = { ...rosterData, ...val };
+          persistLocalRoster();
+          renderAll();
+          fbStatus.textContent = "Datos actualizados desde Firebase.";
+        } else {
+          fbStatus.textContent = "Firebase está conectado pero aún no hay datos guardados en esa ruta.";
+        }
+      } catch (err) {
+        fbStatus.textContent = "Error al leer Firebase: " + err.message;
+      }
+    }
+
     function saveFirebaseConfigAndSync() {
       const databaseURL = document.getElementById("fbUrlInput").value.trim();
       const path = document.getElementById("fbPathInput").value.trim() || "turnosFamilia";
@@ -818,6 +882,7 @@
       }
     }
 
+    loadSavedFirebaseInputs();
     initFirebaseFromConfig();
     renderAll();
   </script>
