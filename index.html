@@ -66,7 +66,7 @@
       <h1 class="text-base sm:text-xl font-bold text-slate-900 leading-tight truncate">¿Cuándo está en casa?</h1>
 
       <div class="flex items-center gap-1.5 shrink-0">
-        <span id="offlineStatusBadge" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-800">📶 Guardado en móvil</span>
+        <span id="offlineStatusBadge" class="shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border border-emerald-200 bg-emerald-50 text-emerald-800">📶 Guardado en movil</span>
         <button
           id="btnLockToggle"
           onclick="handleLockClick()"
@@ -1318,11 +1318,9 @@
 
 
     function extractHotelDetails(rawText, hotelCity) {
-      const text = String(rawText || "").replace(/
-/g, "
-");
+      const text = String(rawText || "").replace(/\r\n/g, "\n");
       const pick = (label) => {
-        const re = new RegExp(`(?:^|[|\n"\s])${label}:\s*([^\n|]+)`, "i");
+        const re = new RegExp("(?:^|[|\\n\"\\s])" + label + ":\\s*([^\\n|]+)", "i");
         const m = text.match(re);
         return m ? m[1].replace(/"/g, "").trim() : "";
       };
@@ -1351,7 +1349,7 @@
       if (breakfast) compactParts.push(`Desayuno: ${breakfast}`);
 
       const laundryText = laundry
-        ? `Lavandería: ${laundry}${laundryPcs && laundryPcs !== "0" ? ` (${laundryPcs} pzs/día)` : ""}`
+        ? `Lavanderia: ${laundry}${laundryPcs && laundryPcs !== "0" ? ` (${laundryPcs} pzs/dia)` : ""}`
         : "";
       if (laundryText) compactParts.push(laundryText);
 
@@ -1366,12 +1364,12 @@
       return {
         name,
         fullSummary: compactParts.join(" | "),
-        shortSummary: `${name}${transfer ? ` · Transfer: ${transfer}` : ""}${laundry ? ` · Lavandería: ${laundry}` : ""}`,
+        shortSummary: `${name}${transfer ? ` · Transfer: ${transfer}` : ""}${laundry ? ` · Lavanderia: ${laundry}` : ""}`,
       };
     }
 
 
-    // === MODO OFFLINE EN ARCHIVO ÚNICO (LOCALSTORAGE + SERVICE WORKER EMBEBIDO) ===
+    // === MODO OFFLINE EN ARCHIVO UNICO (LOCALSTORAGE + SERVICE WORKER EMBEBIDO) ===
     const OFFLINE_META_KEY = "turnos_familia_offline_meta_v1";
 
     function markOfflineReady() {
@@ -1389,7 +1387,7 @@
       const badge = document.getElementById("offlineStatusBadge");
       if (!badge) return;
       const online = navigator.onLine;
-      let savedText = "Guardado en móvil";
+      let savedText = "Guardado en movil";
       try {
         const meta = JSON.parse(localStorage.getItem(OFFLINE_META_KEY) || "null");
         if (meta && meta.savedAt) {
@@ -1411,47 +1409,47 @@
       if (!("serviceWorker" in navigator)) return;
       if (location.protocol !== "https:" && location.protocol !== "http:") return;
       try {
-        const swCode = `
-          const CACHE_NAME = "turnos-familia-offline-v32";
-          const ASSETS = [
-            self.location.href,
-            "https://cdn.tailwindcss.com",
-            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
-            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
-            "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js",
-            "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js",
-            "https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"
-          ];
-          self.addEventListener("install", (event) => {
-            event.waitUntil(
-              caches.open(CACHE_NAME).then((cache) =>
-                Promise.allSettled(ASSETS.map((url) => cache.add(url)))
-              ).then(() => self.skipWaiting())
-            );
-          });
-          self.addEventListener("activate", (event) => {
-            event.waitUntil(
-              caches.keys().then((keys) =>
-                Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-              ).then(() => self.clients.claim())
-            );
-          });
-          self.addEventListener("fetch", (event) => {
-            if (event.request.method !== "GET") return;
-            event.respondWith(
-              caches.match(event.request).then((cached) => {
-                if (cached) return cached;
-                return fetch(event.request).then((resp) => {
-                  if (resp && resp.status === 200 && resp.type !== "opaque") {
-                    const clone = resp.clone();
-                    caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
-                  }
-                  return resp;
-                }).catch(() => cached || new Response("Sin conexión", { status: 503 }));
-              })
-            );
-          });
-        `;
+        const swCode = [
+          'const CACHE_NAME = "turnos-familia-offline-v33";',
+          'const ASSETS = [',
+          '  self.location.href,',
+          '  "https://cdn.tailwindcss.com",',
+          '  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",',
+          '  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",',
+          '  "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js",',
+          '  "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js",',
+          '  "https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"',
+          '];',
+          'self.addEventListener("install", (event) => {',
+          '  event.waitUntil(',
+          '    caches.open(CACHE_NAME).then((cache) =>',
+          '      Promise.allSettled(ASSETS.map((url) => cache.add(url)))',
+          '    ).then(() => self.skipWaiting())',
+          '  );',
+          '});',
+          'self.addEventListener("activate", (event) => {',
+          '  event.waitUntil(',
+          '    caches.keys().then((keys) =>',
+          '      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))',
+          '    ).then(() => self.clients.claim())',
+          '  );',
+          '});',
+          'self.addEventListener("fetch", (event) => {',
+          '  if (event.request.method !== "GET") return;',
+          '  event.respondWith(',
+          '    caches.match(event.request).then((cached) => {',
+          '      if (cached) return cached;',
+          '      return fetch(event.request).then((resp) => {',
+          '        if (resp && resp.status === 200 && resp.type !== "opaque") {',
+          '          const clone = resp.clone();',
+          '          caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));',
+          '        }',
+          '        return resp;',
+          '      }).catch(() => cached || new Response("Sin conexion", { status: 503 }));',
+          '    })',
+          '  );',
+          '});'
+        ].join("\n");
         const blob = new Blob([swCode], { type: "application/javascript" });
         const swUrl = URL.createObjectURL(blob);
         navigator.serviceWorker.register(swUrl).catch(() => {});
